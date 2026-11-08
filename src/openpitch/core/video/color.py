@@ -16,8 +16,10 @@ When a stream does not say, the usual player conventions apply:
 
 8-bit output is within one code value of the reference BT.709/BT.601 math
 (``tests/colorref.py``) for full and limited range, 8- and 10-bit input. ``rgb48le``
-output is within 0.6 (full range) and 1.1 (limited range) 8-bit code values: swscale's
-16-bit path is slightly less exact, whatever the flags.
+output from 10-bit input is within 0.6 (full range) and 1.1 (limited range) 8-bit code
+values: swscale's 16-bit path is slightly less exact, whatever the flags. Use it only for
+input deeper than 8 bits; from 8-bit input it is up to 2.3 off and adds nothing over
+``rgb24``. ``tools/benchmarks/color_accuracy.py`` prints the full matrix.
 """
 
 from __future__ import annotations

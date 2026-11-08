@@ -6,7 +6,9 @@
 - `VideoDecoder` (`openpitch.core.video.decode`) gives full-range RGB (`rgb24`, `bgr24`,
   or `rgb48le` for 10-bit input), optionally scaled in the same pass:
   - `decode_keyframe(n)`: the keyframe at or before `n`, decoded with non-key frames
-    skipped (fast scrubbing).
+    skipped, then the decoder is drained (fast scrubbing). Without draining, a
+    frame-threaded decoder returns a frame only once its threads are full, so one
+    keyframe costs up to one keyframe decode per thread.
   - `decode_frame(n)`: exactly frame `n`. Seeks to the keyframe at or before it and decodes
     forward. Forward stepping continues without a seek. A byte-bounded LRU cache
     (default 256 MiB, about 10 frames at 4K) keeps the frames decoded on the way, so
@@ -23,10 +25,37 @@
   8-bit output is within one code value of reference BT.709/BT.601 math (full and
   limited range, 8- and 10-bit input); `rgb48le` within 0.6/1.1 code values. Transfer
   functions are not converted: HDR or log footage (HLG, PQ, D-Log) is shown as encoded.
-- Measured on 4K HEVC at 38 Mb/s with 1 s GOPs and B-frames (16 threads):
-  `decode_keyframe` 65 ms, random `decode_frame` about 230 ms, forward step 9 ms/frame,
-  `iter_frames` 94 fps at 4K (146 fps scaled to 720p). Coach laptops will be several
-  times slower.
+- Hardware decoding (`hwaccel=` on `VideoDecoder`, `openpitch.core.capabilities`):
+  optional, per platform in order of preference (Linux: cuda, vaapi, qsv; Windows:
+  d3d11va, cuda, qsv; macOS: videotoolbox). `"auto"` takes the first device that really
+  decodes the file: the first frame must come out in device memory, because a configured
+  hardware context falls back to software silently (unsupported codec, profile, or frames
+  below the minimum size, e.g. 144x144 for NVDEC HEVC). Frames are copied back to system
+  memory and converted like software frames. NVDEC output is bit-identical to the
+  software decoder (HEVC 8 and 10 bit, full and limited range).
+- Threading: frame threads for everything. Slice threads only parallelize inside a frame,
+  which needs HEVC wavefronts (WPP), tiles or several slices. The Falcon writes one slice
+  per frame without WPP or tiles, and there slice threads are single-threaded (random
+  access 415 ms instead of 152 ms). `openpitch probe` shows the structure
+  (`openpitch.core.video.structure`). If other footage (Osmo?) uses WPP, slice threads
+  could cut CPU scrubbing further (37 ms instead of about 100 ms on x265 WPP streams).
+- Measured with `openpitch bench-decode` on a Falcon-like stand-in (4K HEVC Main, 38 Mb/s,
+  1 s GOPs, 3 B-frames, single slice, no WPP), RTX 3080 laptop, 16 threads. Latencies are
+  medians from a reset decoder:
+
+  | mode | decode fps (cores) | +RGB fps | scrub | random | step |
+  |---|---|---|---|---|---|
+  | software, 16 threads | 271 (12.1) | 113 | 121 ms | 118 ms | 8.8 ms |
+  | software, 4 threads | 136 (3.4) | 83 | 96 ms | 161 ms | 15.9 ms |
+  | NVDEC (cuda) | 245 (0.4) | 111 | 20 ms | 60 ms | 12.8 ms |
+
+  Before draining, software scrubbing took about 184 ms. (An earlier figure of 65 ms
+  for `decode_keyframe` was wrong: that run hit the frame cache.) At 4K the RGB
+  conversion on the CPU caps sequential output at about 110 fps whatever the decoder;
+  converting at the working or display resolution is much cheaper (720p: about 146 fps
+  with software decoding). Coach laptops will be several times slower in software, which
+  makes their hardware decoders (D3D11VA, VideoToolbox, QSV) the important lever. They
+  are untested so far.
 - The JSONL header `video` block stores `pix_fmt`, `color_range` and `color_space`.
 
 ## Time and seeking

@@ -1,12 +1,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Frame access for clipping, overlays and extraction.
 
-- ``decode_keyframe``: fast scrubbing. Seeks and decodes only keyframes (the decoder
-  skips everything else), so it costs one keyframe decode.
+- ``decode_keyframe``: fast scrubbing. Seeks, has the codec skip non-key frames, and
+  drains the decoder right after the keyframe's packet. Without draining, a
+  frame-threaded decoder only returns a frame once all its threads are busy, which
+  means decoding up to one keyframe per thread first (twice the latency on 4K HEVC).
 - ``decode_frame``: precise stepping. Decodes forward from the keyframe at or before the
   frame, at most one GOP. Stepping forward continues without a new seek, and recently
   decoded frames are kept in a small LRU cache, so stepping back is cheap too.
 - ``iter_frames``: sequential reading for extraction. One seek, then decode in order.
+
+Hardware decoding (``hwaccel``) is optional and falls back to software when the
+device cannot decode the stream. Frames are copied back to system memory, so the output
+is the same, bit for bit (NVDEC was measured identical to the software decoder).
 
 All output is full-range RGB converted with the stream's real matrix and range (see
 ``color``). Frames are identified by their position in the frame index; decoded frames
@@ -23,6 +29,7 @@ from pathlib import Path
 
 import av
 import numpy as np
+from av.codec.hwaccel import HWAccel
 
 from openpitch.core.video.color import OUTPUT_FORMATS, to_array
 from openpitch.core.video.index import FrameIndex, load_frame_index
@@ -65,7 +72,17 @@ class VideoDecoder:
         size: tuple[int, int] | None = None,
         cache_bytes: int = DEFAULT_CACHE_BYTES,
         threads: int = 0,
+        hwaccel: str | None = None,
     ) -> None:
+        """Open ``path`` for decoding.
+
+        ``threads`` is the software decoder's thread count (0: automatic).
+        ``hwaccel`` is an ffmpeg hardware device type ("cuda", "d3d11va",
+        "videotoolbox", ...), "auto" for the first one that works for this file
+        (``openpitch.core.capabilities``), or None for software decoding. A device
+        that cannot decode this file falls back to software; ``self.hwaccel`` says
+        which device is in use.
+        """
         if format not in OUTPUT_FORMATS:
             raise ValueError(f"unsupported output format {format!r}, use one of {OUTPUT_FORMATS}")
         self.path = Path(path)
@@ -74,12 +91,26 @@ class VideoDecoder:
         self.size = size
         self.stats = DecoderStats()
 
-        self._container = av.open(str(self.path))
+        if hwaccel:
+            from openpitch.core.capabilities import check_hw_decode, select_hw_decoder
+
+            if hwaccel == "auto":
+                hwaccel = select_hw_decoder(self.path)
+            elif not check_hw_decode(self.path, hwaccel):
+                hwaccel = None  # unusable here: a normal, multi-threaded software decoder
+        #: The hardware device type in use (None: software).
+        self.hwaccel = hwaccel
+        if hwaccel:
+            accel = HWAccel(hwaccel, allow_software_fallback=True)
+            self._container = av.open(str(self.path), hwaccel=accel)
+        else:
+            self._container = av.open(str(self.path))
         self._stream = self._container.streams.video[0]
         if self._stream.index != self.index.stream_index:
             raise ValueError("frame index belongs to a different stream")
-        self._stream.thread_type = "AUTO"
-        self._stream.thread_count = threads
+        if not hwaccel:
+            self._stream.thread_type = "AUTO"
+            self._stream.thread_count = threads
         self._codec = self._stream.codec_context
 
         cc = self._codec
@@ -112,6 +143,17 @@ class VideoDecoder:
         """How many frames the LRU cache holds."""
         return self._cache_capacity
 
+    @property
+    def hardware(self) -> bool:
+        """True if frames are decoded in hardware (checked on the file when opening)."""
+        return self.hwaccel is not None
+
+    def reset(self) -> None:
+        """Drop cached frames and the sequential decode state (next access seeks)."""
+        self._cache.clear()
+        self._frames = None
+        self._last = None
+
     # -- public API -------------------------------------------------------------------
 
     def decode_keyframe(self, frame: int) -> DecodedFrame:
@@ -129,10 +171,9 @@ class VideoDecoder:
 
         self._codec.skip_frame = "NONKEY"
         try:
-            for vf, pos in self._raw_from(key):
-                if pos == key:
-                    return self._remember(self._make(vf, pos))
-                break
+            vf = self._drain_decode(key)
+            if vf is not None:
+                return self._remember(self._make(vf, key))
         finally:
             self._codec.skip_frame = "DEFAULT"
             # Non-key frames were skipped, so the decoder cannot continue sequentially.
@@ -249,6 +290,43 @@ class VideoDecoder:
                 return  # end of stream
             if target == 0:
                 return
+            earlier = self.index.keyframe_at_or_before(target - 1)
+            target = 0 if earlier is None else earlier
+
+    def _drain_decode(self, key: int) -> av.VideoFrame | None:
+        """Seek to keyframe ``key``, feed packets up to its own, then drain the decoder.
+
+        Retries from earlier keyframes if the seek lands too late. The decoder is left
+        drained: the next access must seek (which flushes it).
+        """
+        want = self.index.pts_of(key)
+        tol = self.index.default_tolerance
+        target = key
+        while True:
+            self._container.seek(self.index.pts_of(target), stream=self._stream, backward=True)
+            self.stats.seeks += 1
+            first = True
+            late = False
+            for packet in self._container.demux(self._stream):
+                if packet.pts is None:
+                    continue
+                if first:
+                    first = False
+                    late = packet.pts > want + tol and target > 0
+                    if late:
+                        break
+                for vf in self._codec.decode(packet):
+                    self.stats.decoded += 1
+                    if self._position(vf) == key:
+                        return vf
+                if abs(packet.pts - want) <= tol:
+                    break
+            if not late:
+                for vf in self._codec.decode(None):
+                    self.stats.decoded += 1
+                    if self._position(vf) == key:
+                        return vf
+                return None
             earlier = self.index.keyframe_at_or_before(target - 1)
             target = 0 if earlier is None else earlier
 

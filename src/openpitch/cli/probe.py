@@ -7,7 +7,7 @@ from pathlib import Path
 
 import click
 
-from openpitch.core.video import load_frame_index, probe, summarize
+from openpitch.core.video import load_frame_index, probe, stream_structure, summarize
 
 
 def _fmt_s(seconds: float) -> str:
@@ -59,6 +59,15 @@ def probe_cmd(video: Path, as_json: bool, no_cache: bool) -> None:
             f"(min/median/max), ~{s.gop_s:.2f} s",
         ),
     ]
+    structure = stream_structure(video)
+    parallel = {True: "yes", False: "no", None: "unknown"}[structure.intra_frame_parallel]
+    lines.append(
+        (
+            "Structure",
+            f"WPP {structure.wpp}, tiles {structure.tiles}, slices {structure.slices}"
+            f" (intra-frame parallel decoding: {parallel})",
+        )
+    )
     if not s.starts_with_keyframe:
         lines.append(("Warning", "stream does not start with a keyframe"))
     width = max(len(k) for k, _ in lines)

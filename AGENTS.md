@@ -11,6 +11,7 @@ no capable GPU, so analysis must work from JSONL extracted elsewhere.
 - `src/openpitch/studio/`: PySide6 desktop UI ("Studio").
 - `tests/`: pytest, must pass without a GPU.
 - `docs/decisions/`: decision records (ADRs). `docs/design/`: living design docs.
+- `tools/benchmarks/`: raw measurement scripts. `openpitch bench-decode` compares decoders.
 
 core never imports cli or studio, and cli and studio never import each other
 (docs/decisions/0002). Heavy deps (torch, ultralytics, PySide6) are optional extras and
