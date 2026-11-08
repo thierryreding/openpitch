@@ -249,3 +249,17 @@ def test_cli_recode_usage_errors(videos, tmp_path):
         main, ["recode", "--crf", "20", "-o", str(videos["regular"]), str(videos["regular"]), "-f"]
     )
     assert result.exit_code == 1 and "overwrite the input" in result.output
+
+
+@pytest.mark.parametrize("name", ["intra", "bframes"])
+def test_output_gop_is_not_copied_from_source(videos, tmp_path, name):
+    """Decoded frames carry their source picture type; encoders treat "I" as a forced
+    keyframe. The output must get its own keyframe interval instead."""
+    dst = tmp_path / "out.mp4"
+    recode(videos[name], dst, SOFTWARE)
+    source = set(build_frame_index(videos[name]).keyframes.tolist())
+    output = set(build_frame_index(dst).keyframes.tolist())
+    # Source: every frame (intra) or every 15th. Output: 5 s GOPs plus whatever scene cuts
+    # the encoder finds in the noise, but not the source's keyframes.
+    assert len(output) < len(source)
+    assert len(output & source) <= 1  # frame 0 only

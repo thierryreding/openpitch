@@ -31,6 +31,7 @@ from pathlib import Path
 
 import av
 from av.codec.hwaccel import HWAccel
+from av.video.frame import PictureType
 from av.video.reformatter import ColorRange, Colorspace, Interpolation
 from pydantic import BaseModel
 
@@ -59,6 +60,8 @@ PROFILES: dict[str, dict[str, int]] = {
 DEFAULT_PROFILE = "normal"
 DEFAULT_HEIGHT = 1080
 DEFAULT_PRESET = {"x264": "fast", "x265": "fast", "nvenc": "p5"}
+#: Keyframe interval of the output.
+KEYFRAME_SECONDS = 5
 
 #: Audio codecs MP4 carries as they are (MKV carries anything).
 _MP4_AUDIO = {"aac", "mp3", "ac3", "eac3", "alac", "opus", "flac"}
@@ -310,6 +313,8 @@ def _recode(
         cc.time_base = tb
         cc.color_range, cc.colorspace, cc.color_primaries, cc.color_trc = _TV, _BT709, 1, 1
         vout.options = _encoder_options(family, quality, preset)
+        # A keyframe every few seconds: cheap, and players seek quickly.
+        cc.gop_size = max(1, round(float(rate) * KEYFRAME_SECONDS))
         if settings.codec == "hevc" and settings.container == "mp4":
             cc.codec_tag = "hvc1"  # Apple devices only play HEVC in MP4 tagged hvc1
 
@@ -396,6 +401,10 @@ def _convert(frame: av.VideoFrame, width: int, height: int, source: StreamColor)
             interpolation=Interpolation.BICUBIC | Interpolation.ACCURATE_RND,
         )
     out.pts = frame.pts
+    # Decoded frames keep their source picture type, and encoders force a keyframe for
+    # every frame marked I. Left alone, the output copies the source's GOP structure (or
+    # is all keyframes for intra-only sources), which costs 30% or more in size.
+    out.pict_type = PictureType.NONE
     out.time_base = frame.time_base
     out.color_range = _TV
     out.colorspace = _BT709

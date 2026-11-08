@@ -131,6 +131,10 @@ and container are independent options:
   similar quality. `--crf` and `--preset` override them.
 - Output is BT.709 limited range, what browsers, phones and tablets expect. The source
   matrix and range are converted properly, so full-range Falcon footage stays correct.
+- Keyframes every 5 seconds, chosen by the encoder (plus scene cuts), never copied from
+  the source: decoded frames keep their source picture type, and encoders force a
+  keyframe for every frame marked I, which turned Falcon recodes into 1 s GOPs (about 30%
+  bigger) and intra-only sources into all keyframes.
 - Source timestamps are kept (MKV rounds them to milliseconds). Audio is copied if the
   container can carry it, else encoded to AAC. `creation_time` is copied. Interrupted
   runs leave no partial file.
