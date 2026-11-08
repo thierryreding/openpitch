@@ -56,7 +56,7 @@ def test_recode_keeps_frames_timestamps_audio_and_metadata(with_audio, tmp_path)
     result = recode(with_audio, dst, SOFTWARE)
     assert (result.width, result.height, result.frames) == (64, 48, 60)
     assert (result.codec, result.encoder, result.container) == ("h264", "libx264", "mp4")
-    assert (result.quality, result.audio) == (23, "copied")
+    assert (result.quality, result.audio) == (PROFILES["normal"]["x264"], "copied")
     assert result.decoder == "software"
     assert not list(tmp_path.glob(".*partial"))
 
@@ -222,7 +222,8 @@ def test_cli_recode(with_audio, tmp_path):
     assert result.exit_code == 0, result.output
     dst = default_output(with_audio, 1080, out_dir)
     assert dst.name == "match_1080p.mp4" and dst.is_file()
-    assert "h264/mp4, libx264 q28" in result.output and "audio copied" in result.output
+    assert f"h264/mp4, libx264 q{PROFILES['small']['x264']}" in result.output
+    assert "audio copied" in result.output
 
     # Refuses to overwrite without --force.
     result = runner.invoke(main, args)
@@ -237,7 +238,7 @@ def test_cli_recode_hevc_mkv(with_audio, tmp_path):
     )
     assert result.exit_code == 0, result.output
     assert (tmp_path / "match_1080p.mkv").is_file()
-    assert "hevc/mkv, libx265 q26" in result.output
+    assert f"hevc/mkv, libx265 q{PROFILES['normal']['x265']}" in result.output
 
 
 def test_cli_recode_usage_errors(videos, tmp_path):

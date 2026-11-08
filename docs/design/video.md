@@ -126,9 +126,16 @@ and container are independent options:
 - `--container mp4` (default) with `+faststart`, and HEVC tagged `hvc1` as Apple devices
   require. `mkv` (cues in front) plays on Windows and in VLC, but not on iPadOS/iOS or in
   QuickTime, and is not on Google Drive's list of preview formats.
-- Profiles map to a constant quality per encoder family: `tiny` (x264 CRF 32), `small`
-  (28), `normal` (23, default), `high` (19); x265 and NVENC values in the same row aim at
-  similar quality. `--crf` and `--preset` override them.
+- Profiles map to a constant quality per encoder family, calibrated on real Falcon
+  footage so each row reaches the same VMAF (see "Encoder comparison" below; `--crf` and
+  `--preset` override them):
+
+  | profile | VMAF | NVENC CQ | x264 `fast` | x265 `fast` | NVENC H.264 bitrate |
+  |---|---|---|---|---|---|
+  | high | 95.2 | 26 | 20 | 19 | 7.4 Mb/s (about 3.3 GB/h) |
+  | normal (default) | 93.6 | 29 | 22 | 22 | 4.6 Mb/s (about 2.1 GB/h) |
+  | small | 90.9 | 32 | 25 | 25 | 2.6 Mb/s (about 1.2 GB/h) |
+  | tiny | 86.8 | 35 | 28 | 28 | 1.6 Mb/s (about 0.7 GB/h) |
 - Output is BT.709 limited range, what browsers, phones and tablets expect. The source
   matrix and range are converted properly, so full-range Falcon footage stays correct.
 - Keyframes every 5 seconds, chosen by the encoder (plus scene cuts), never copied from
@@ -138,12 +145,49 @@ and container are independent options:
 - Source timestamps are kept (MKV rounds them to milliseconds). Audio is copied if the
   container can carry it, else encoded to AAC. `creation_time` is copied. Interrupted
   runs leave no partial file.
-- Decoding uses a hardware decoder when one works. On the Falcon-like stand-in, 4K to
-  1080p ran at about 5.5x realtime with NVENC, H.264 or HEVC (about 6 minutes for a 30
-  minute half), and 2.6x with x264 `fast` (about 12 minutes). NVENC needs somewhat more
-  bits for the same quality, which its higher CQ values per profile account for. Sizes
-  from synthetic footage mean nothing: check the profile values, and how much HEVC saves,
-  on real recordings. Whether Google Drive previews HEVC and MKV uploads is untested.
+- Decoding uses a hardware decoder when one works. On a real 17 minute Falcon recording,
+  4K to 1080p with NVENC ran at about 3.7x realtime on an RTX 3080 laptop (about 8
+  minutes for a 30 minute half); x264 `fast` is about half as fast. Whether Google Drive
+  previews HEVC and MKV uploads is untested.
+
+## Encoder comparison
+Measured with `tools/benchmarks/encoder_matrix.py` and `bdrate.py` on a 2 minute excerpt
+of real Falcon footage (a match, lots of motion), converted to a lossless 1080p
+reference that every encoder encodes; VMAF v0.6.1 and VMAF NEG against that reference.
+BD-rate is the average bitrate difference at equal quality against NVENC H.264 p5 (what
+`recode` uses); negative is better.
+
+| encoder | curve (Mb/s → VMAF) | BD-rate VMAF / NEG | fps |
+|---|---|---|---|
+| NVENC H.264 p5 | 1.6 → 86.8, 2.6 → 90.9, 4.6 → 93.6, 7.4 → 95.2 | baseline | 190 |
+| NVENC HEVC p5 | 1.6 → 88.2, 2.6 → 91.2, 4.4 → 93.3, 7.4 → 94.8 | -3.4% / -3.6% | 210 |
+| NVENC HEVC p7, B-frame refs | 1.6 → 88.4, 2.6 → 91.3, 4.4 → 93.4, 7.4 → 94.9 | -5.7% / -5.4% | 127 |
+| NVENC HEVC p7, B-frame refs, AQ | 1.5 → 86.9, 2.5 → 90.2, 4.3 → 92.4, 7.4 → 94.1 | +10.2% / +11.4% | 127 |
+| NVENC H.264 p7, B-frame refs, AQ | 1.6 → 84.8, 2.7 → 89.1, 4.6 → 91.9, 7.7 → 94.0 | +38.6% / +40.9% | 170 |
+| x264 fast | 1.6 → 85.3, 2.9 → 90.1, 6.1 → 93.3, 13.1 → 95.4 | +31.8% / +39.4% | 75-110 |
+| x265 fast | 1.2 → 85.3, 2.1 → 89.4, 4.0 → 92.3, 7.6 → 94.3 | +11.0% / +10.8% | 46-68 |
+| x264 medium | 1.7 → 86.0, 3.1 → 90.7, 6.3 → 93.7, 13.1 → 95.7 | +24.3% / +34.2% | 62-94 |
+| x265 medium | 1.2 → 85.9, 2.3 → 90.0, 4.5 → 92.9, 8.8 → 94.8 | +6.0% / +8.7% | 33-58 |
+| x265 slow | 1.4 → 89.2, 2.7 → 92.5, 5.5 → 94.5, 10.7 → 95.8 | -22.9% / -17.5% | 15-27 |
+| x264 medium, `tune psnr` | 1.7 → 87.5, 3.1 → 91.7, 5.8 → 94.5, 11.0 → 96.2 | +3.6% / +4.2% | 72-101 |
+| x265 medium, `tune psnr` | 0.8 → 81.8, 1.5 → 87.5, 3.0 → 91.4, 5.7 → 93.9 | +0.9% / +1.1% | 42-64 |
+
+Findings:
+- HEVC against H.264 with the same tuning: only 2-6% fewer bits when both are tuned for
+  objective quality (NVENC without AQ: -3.4%; x265/x264 `tune psnr`: -2.3%), but 15-21%
+  with psychovisual tuning on (NVENC with AQ: -20.7%; x265/x264 defaults: -15% to
+  -17%). VMAF NEG agrees, so this is not a sharpening artifact. A plausible reason: grass
+  and fine detail are mostly unpredictable texture, where residual coding dominates and
+  HEVC's better prediction saves little; HEVC's large gains are reported at 4K, low
+  bitrates and smoother content.
+- VMAF penalizes AQ and psychovisual tuning heavily (they move bits to what the eye
+  notices). Whether AQ looks better on this footage needs a visual check.
+- NVENC H.264 without AQ is the best speed/efficiency trade-off by VMAF, so it stays the
+  default. NVENC p7 and B-frame references gain only 2% for 40% of the speed. Only x265
+  `slow` is clearly more efficient (-23%), at about one eighth of the speed.
+- B-frames were not the issue: both NVENC encoders use 3 by default in this ffmpeg.
+
+
 
 ## Footage facts
 XbotGo Falcon, measured on a real recording (18:31, 4K):

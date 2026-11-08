@@ -49,13 +49,15 @@ _FFMPEG_ENCODERS: dict[tuple[str, str], tuple[str, str]] = {
     ("hevc", "nvenc"): ("hevc_nvenc", "nvenc"),
 }
 
-#: Profile -> constant-quality value per encoder family. The x265 and NVENC values aim at
-#: roughly the quality of the x264 value in the same row; HEVC then needs fewer bits.
+#: Profile -> constant-quality value per encoder family, calibrated on real Falcon footage
+#: (4K -> 1080p, default presets) so each row reaches the same VMAF: high 95.2,
+#: normal 93.6, small 90.9, tiny 86.8. Above about 93 is generally indistinguishable from
+#: the source in normal viewing. See docs/design/video.md and tools/benchmarks.
 PROFILES: dict[str, dict[str, int]] = {
-    "tiny": {"x264": 32, "x265": 34, "nvenc": 35},
-    "small": {"x264": 28, "x265": 30, "nvenc": 31},
-    "normal": {"x264": 23, "x265": 26, "nvenc": 26},
-    "high": {"x264": 19, "x265": 22, "nvenc": 22},
+    "tiny": {"x264": 28, "x265": 28, "nvenc": 35},
+    "small": {"x264": 25, "x265": 25, "nvenc": 32},
+    "normal": {"x264": 22, "x265": 22, "nvenc": 29},
+    "high": {"x264": 20, "x265": 19, "nvenc": 26},
 }
 DEFAULT_PROFILE = "normal"
 DEFAULT_HEIGHT = 1080
