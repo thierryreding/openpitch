@@ -15,8 +15,15 @@ uv run openpitch bench-decode --json VIDEO... > results.json
 | `decode_raw.py VIDEO...` | raw PyAV decode: CPU threads vs NVDEC, with frames copied back or left on the GPU; bit-exactness of NVDEC |
 | `decode_latency.py VIDEO...` | single-frame latency: frame threads vs slice threads vs draining the decoder |
 | `color_accuracy.py` | YUV -> RGB error of swscale flag sets against reference BT.709/BT.601 math |
+| `encoder_matrix.py SOURCE --work DIR` | VMAF / VMAF NEG curves per encoder configuration on a lossless excerpt (NVENC presets, B-frame references, AQ; x264/x265 presets, with and without psychovisual tuning); resumable, writes `DIR/results.csv` |
+| `bdrate.py DIR/results.csv` | curves, BD-rates against a baseline, HEVC vs H.264 with equal tuning, and `--target` VMAF -> CRF/CQ per configuration (how the `recode` profiles were set) |
 
 Run them from the repository root with `uv run python tools/benchmarks/<script>`.
+
+`encoder_matrix.py` copies footage into its work directory (the 2 minute 1080p lossless
+reference is about 3.9 GB). Point `--work` outside the repository and delete it
+afterwards; never commit footage. A full run of all configurations takes about 2.5 hours
+on an RTX 3080 laptop, mostly x265 `slow`.
 
 ## Stand-in footage
 
