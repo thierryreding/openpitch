@@ -108,6 +108,33 @@ Stream copy (keyframe-aligned, no re-encode) for now
 configurable re-encode for frame-accurate cuts, smart cut, or a re-encoded 1080p export
 for iPads.
 
+## Recoding for sharing
+`openpitch recode` (`openpitch.core.video.recode`) re-encodes whole files to smaller files
+for sharing, e.g. via cloud storage: 1080p by default (never upscales). Codec, encoder
+and container are independent options:
+- `--codec h264` (default) plays everywhere. `--codec hevc` is 30-50% smaller at the
+  same quality and plays natively on Apple devices and in Chrome (with a hardware
+  decoder), but Windows players need the paid "HEVC Video Extensions" (VLC does not).
+- `--encoder auto` (default) uses NVENC when it works for the output size (checked with a
+  test encode), else software (x264/x265). `software` and `nvenc` force one.
+- `--container mp4` (default) with `+faststart`, and HEVC tagged `hvc1` as Apple devices
+  require. `mkv` (cues in front) plays on Windows and in VLC, but not on iPadOS/iOS or in
+  QuickTime, and is not on Google Drive's list of preview formats.
+- Profiles map to a constant quality per encoder family: `tiny` (x264 CRF 32), `small`
+  (28), `normal` (23, default), `high` (19); x265 and NVENC values in the same row aim at
+  similar quality. `--crf` and `--preset` override them.
+- Output is BT.709 limited range, what browsers, phones and tablets expect. The source
+  matrix and range are converted properly, so full-range Falcon footage stays correct.
+- Source timestamps are kept (MKV rounds them to milliseconds). Audio is copied if the
+  container can carry it, else encoded to AAC. `creation_time` is copied. Interrupted
+  runs leave no partial file.
+- Decoding uses a hardware decoder when one works. On the Falcon-like stand-in, 4K to
+  1080p ran at about 5.5x realtime with NVENC, H.264 or HEVC (about 6 minutes for a 30
+  minute half), and 2.6x with x264 `fast` (about 12 minutes). NVENC needs somewhat more
+  bits for the same quality, which its higher CQ values per profile account for. Sizes
+  from synthetic footage mean nothing: check the profile values, and how much HEVC saves,
+  on real recordings. Whether Google Drive previews HEVC and MKV uploads is untested.
+
 ## Footage facts
 XbotGo Falcon, measured on a real recording (18:31, 4K):
 - A single MP4, HEVC Main 8-bit (hvc1 tag, which Apple devices play), yuv420p full range

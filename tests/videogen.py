@@ -56,6 +56,10 @@ class VideoSpec:
     matrix: str | None = None  # "bt709" or "bt601"
     #: Lossless encoding (exact YUV values survive).
     lossless: bool = False
+    #: Add a stereo AAC track (a 440 Hz tone).
+    audio: bool = False
+    #: Container metadata, e.g. {"creation_time": "..."}.
+    metadata: dict[str, str] | None = None
 
     def keyframe_set(self) -> set[int]:
         if self.keyframes is not None:
@@ -151,6 +155,8 @@ def make_video(path: Path, spec: VideoSpec) -> Path:
     height = PATCH_SIZE if patches else spec.height
 
     with av.open(str(path), "w", format="mp4") as out:
+        for key, value in (spec.metadata or {}).items():
+            out.metadata[key] = value
         stream = out.add_stream(spec.codec, rate=spec.fps)
         stream.width = width
         stream.height = height
@@ -194,6 +200,12 @@ def make_video(path: Path, spec: VideoSpec) -> Path:
         else:
             raise ValueError(f"unsupported codec {spec.codec}")
 
+        # All streams must exist before the first packet is muxed.
+        audio = None
+        if spec.audio:
+            audio = out.add_stream("aac", rate=48000)
+            audio.layout = "stereo"
+
         keyframes = spec.keyframe_set()
         rng = np.random.default_rng(1234)
         patch_frame = _patches_frame(spec) if patches else None
@@ -215,4 +227,21 @@ def make_video(path: Path, spec: VideoSpec) -> Path:
                 out.mux(packet)
         for packet in stream.encode(None):
             out.mux(packet)
+        if audio is not None:
+            _encode_tone(out, audio, seconds=spec.frames / spec.fps)
     return path
+
+
+def _encode_tone(out, audio, seconds: float, rate: int = 48000) -> None:
+    samples = int(seconds * rate)
+    chunk = 1024
+    for start in range(0, samples, chunk):
+        t = np.arange(start, min(start + chunk, samples)) / rate
+        tone = (0.2 * np.sin(2 * np.pi * 440 * t)).astype(np.float32)
+        frame = av.AudioFrame.from_ndarray(np.stack([tone, tone]), format="fltp", layout="stereo")
+        frame.sample_rate = rate
+        frame.pts = start
+        for packet in audio.encode(frame):
+            out.mux(packet)
+    for packet in audio.encode(None):
+        out.mux(packet)
