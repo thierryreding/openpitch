@@ -39,6 +39,9 @@
   below the minimum size, e.g. 144x144 for NVDEC HEVC). Frames are copied back to system
   memory and converted like software frames. NVDEC output is bit-identical to the
   software decoder (HEVC 8 and 10 bit, full and limited range).
+  VideoToolbox works in the PyAV wheels on macOS (GitHub's Apple Silicon runners decode
+  HEVC with it, down to 128x16 frames, with correct colors). D3D11VA on Windows is still
+  untested on real hardware.
 - Threading: frame threads for everything. Slice threads only parallelize inside a frame,
   which needs HEVC wavefronts (WPP), tiles or several slices. The Falcon writes one slice
   per frame without WPP or tiles, and there slice threads are single-threaded (random

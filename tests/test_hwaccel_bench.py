@@ -78,9 +78,26 @@ def test_cuda_hevc_matches_software(tmp_path, pix_fmt, color_range):
             assert frame_id(hw.decode_frame(n).image) == n
 
 
-def test_tiny_frames_fall_back_to_software(color_videos):
-    # 128x16 is below every hardware decoder's minimum size.
-    with VideoDecoder(color_videos["hevc_pc_709"], hwaccel="auto") as dec:
+def test_auto_only_picks_a_working_device(color_videos):
+    """Whatever auto picks (software, or e.g. VideoToolbox on macOS, which decodes even
+    128x16 HEVC), frames decode with correct colors."""
+    from colorref import PATCH_COLORS, sample_patches
+
+    path = color_videos["hevc_pc_709"]
+    with VideoDecoder(path, hwaccel="auto") as dec:
+        assert dec.hardware == (dec.hwaccel is not None)
+        if dec.hwaccel is not None:
+            assert capabilities.check_hw_decode(path, dec.hwaccel)
+        rgb = dec.decode_frame(0).image
+    assert np.abs(sample_patches(rgb) - PATCH_COLORS).max() <= 1
+
+
+@pytest.mark.gpu
+def test_nvdec_minimum_frame_size_falls_back(color_videos):
+    # NVDEC needs at least 144x144 for HEVC: 128x16 must not count as hardware decoding.
+    path = color_videos["hevc_pc_709"]
+    assert not capabilities.check_hw_decode(path, "cuda")
+    with VideoDecoder(path, hwaccel="cuda") as dec:
         assert dec.hwaccel is None and not dec.hardware
 
 
