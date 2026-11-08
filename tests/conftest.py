@@ -80,6 +80,18 @@ COLOR_SPECS: dict[str, VideoSpec] = {
         color_range="pc",
         matrix="bt709",
     ),
+    # Like the XbotGo Falcon: full-range BT.709 pixels, nothing signalled in the bitstream,
+    # range and matrix only in the MP4 colr atom. (ffmpeg's libx265 wrapper always writes
+    # a signal type, so this case can only be generated with H.264. The HEVC decoder then
+    # tags frames "tv", see test_color.py.)
+    "h264_colr_pc_709": VideoSpec(
+        frames=3,
+        content="patches",
+        lossless=True,
+        data_range="pc",
+        data_matrix="bt709",
+        container_color=("pc", "bt709"),
+    ),
     "hevc10_tv_709": VideoSpec(
         frames=3,
         content="patches",

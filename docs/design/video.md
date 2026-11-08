@@ -19,9 +19,15 @@
     open GOP (before the keyframe) are dropped, never cached.
 - Color (`openpitch.core.video.color`): the source matrix and range are always passed to
   swscale explicitly. Untagged frames otherwise get BT.601 limited range, which renders
-  full-range BT.709 up to 24 code values off. Unspecified metadata follows player
-  conventions: `yuvj*` is full range, otherwise limited; BT.709 from 1280x720 up,
-  BT.601 below; the result says when it guessed. Overrides exist for mis-tagged streams.
+  full-range BT.709 up to 24 code values off. Where range and matrix come from, in
+  order (`stream_color`): the bitstream (H.264/HEVC VUI) when it signals them; else the
+  container (MP4 `colr`); else player conventions (`yuvj*` is full range, otherwise
+  limited; BT.709 from 1280x720 up, BT.601 below; flagged as guessed). The container
+  step matters: ffmpeg's HEVC decoder tags frames as limited range whenever the
+  bitstream signals no range, overriding the container. Falcon footage is exactly that
+  case, and trusting the frames rendered it with crushed shadows and clipped highlights
+  (and made `recode` write full-range levels labelled as limited). `openpitch probe`
+  shows the color source. Overrides exist for mis-tagged streams.
   8-bit output is within one code value of reference BT.709/BT.601 math (full and
   limited range, 8- and 10-bit input); `rgb48le` within 0.6/1.1 code values. Transfer
   functions are not converted: HDR or log footage (HLG, PQ, D-Log) is shown as encoded.
@@ -137,8 +143,11 @@ and container are independent options:
 
 ## Footage facts
 XbotGo Falcon, measured on a real recording (18:31, 4K):
-- A single MP4, HEVC Main 8-bit (hvc1 tag, which Apple devices play), yuv420p full range
-  (pc), bt709, 3840x2160, 30 fps (average and real frame rate agree, likely constant).
+- A single MP4, HEVC Main 8-bit (hvc1 tag, which Apple devices play), yuv420p,
+  3840x2160, 30 fps (average and real frame rate agree, likely constant).
+- Full range BT.709, signalled only in the MP4 `colr` atom: the bitstream has VUI but no
+  video signal type or colour description. The pixel data confirms full range (luma
+  reaches 0 and 255). One slice per frame, no WPP, no tiles.
 - ~38.7 Mb/s, ~290 MB/min: ~5.4 GB for the 18:31 file, ~8.7 GB for a 30 minute half.
 - AAC stereo audio. Muxed by libavformat 61.7, so the file was remuxed or processed by an
   FFmpeg-based tool.

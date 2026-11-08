@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import os
+
 import av
 import numpy as np
 import pytest
@@ -129,3 +131,58 @@ def test_rgb_input_passes_through():
     img = np.random.default_rng(0).integers(0, 256, (16, 32, 3), dtype=np.uint8)
     frame = av.VideoFrame.from_ndarray(img, format="rgb24")
     assert np.array_equal(to_array(frame), img)
+
+
+# -- container color when the bitstream is silent (the Falcon case) -----------------
+
+
+def test_container_color_wins_when_bitstream_is_silent(color_videos):
+    from openpitch.core.video import stream_structure
+    from openpitch.core.video.color import StreamColor, stream_color
+
+    path = color_videos["h264_colr_pc_709"]
+    structure = stream_structure(path)
+    assert (structure.signal_type, structure.colour_description) == (False, False)
+    assert stream_color(path) == StreamColor(range="pc", matrix="bt709", source="container")
+    with VideoDecoder(path) as dec:
+        assert np.abs(sample_patches(dec.decode_frame(0).image) - EXPECTED).max() <= 1
+
+
+def test_stream_color_overrides_decoder_range_tag():
+    """ffmpeg's HEVC decoder tags frames "tv" when the bitstream signals no range, even
+    though the container says full range. The stream-level color must win."""
+    from openpitch.core.video.color import StreamColor, frame_color
+
+    frame = patches_frame(matrix="bt709", full=True)
+    frame.color_range = 1  # what the decoder claims
+    stream = StreamColor(range="pc", matrix="bt709", source="container")
+    assert frame_color(frame).range == "tv"
+    assert np.abs(sample_patches(to_array(frame)) - EXPECTED).max() > 10
+    assert frame_color(frame, stream) == ColorInfo("bt709", "pc")
+    assert np.abs(sample_patches(to_array(frame, stream=stream)) - EXPECTED).max() <= 1
+    # Only the range from the container: the matrix is still guessed from the frame.
+    partial = frame_color(frame, StreamColor(range="pc", source="container"))
+    assert (partial.matrix, partial.range, partial.guessed) == ("bt601", "pc", True)
+
+
+@pytest.mark.parametrize("name", ["hevc_pc_709", "h264_tv_601", "h264_untagged"])
+def test_bitstream_color_is_trusted(color_videos, name):
+    from openpitch.core.video.color import TRUST_FRAMES, stream_color
+
+    # Signalled in the bitstream (or nothing anywhere): the frames' own tags are used.
+    assert stream_color(color_videos[name]) is TRUST_FRAMES
+
+
+@pytest.mark.skipif(
+    not os.environ.get("OPENPITCH_TEST_FOOTAGE"),
+    reason="set OPENPITCH_TEST_FOOTAGE to a real XbotGo Falcon recording",
+)
+def test_real_falcon_footage_is_full_range():
+    """Opt-in check on real footage (never committed): full range comes from colr."""
+    from openpitch.core.video import stream_structure
+    from openpitch.core.video.color import stream_color
+
+    path = os.environ["OPENPITCH_TEST_FOOTAGE"]
+    assert stream_structure(path).signal_type is False
+    color = stream_color(path)
+    assert (color.range, color.matrix, color.source) == ("pc", "bt709", "container")

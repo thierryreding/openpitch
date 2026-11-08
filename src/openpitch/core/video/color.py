@@ -10,7 +10,14 @@ relying on defaults:
   values off, and the behavior has changed between PyAV versions.
 - Callers can override the metadata when a stream is known to be mis-tagged.
 
-When a stream does not say, the usual player conventions apply:
+Where color metadata comes from, in order (``stream_color``):
+1. the bitstream (H.264/HEVC VUI), when it signals range or matrix;
+2. otherwise the container (MP4 ``colr``, Matroska colour elements). This matters:
+   ffmpeg's decoders tag frames as limited range whenever the bitstream is silent,
+   overriding the container. The XbotGo Falcon writes full-range video with no range in
+   the bitstream and ``colr`` = full range BT.709, so trusting the frames would render
+   it with crushed shadows and clipped highlights;
+3. otherwise the usual player conventions:
 - range: ``yuvj*`` pixel formats are full range, everything else is limited (tv);
 - matrix: BT.709 for HD and larger (width >= 1280 or height >= 720), BT.601 below.
 
@@ -24,7 +31,8 @@ input deeper than 8 bits; from 8-bit input it is up to 2.3 off and adds nothing 
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import os
+from dataclasses import dataclass, replace
 
 import av
 import numpy as np
@@ -94,14 +102,58 @@ def resolve_color(
     return ColorInfo(matrix=matrix, range=rng, guessed=guessed)
 
 
-def frame_color(frame: av.VideoFrame) -> ColorInfo:
-    return resolve_color(
+@dataclass(frozen=True)
+class StreamColor:
+    """Stream-level color that overrides what decoded frames claim (None: trust them)."""
+
+    range: str | None = None
+    matrix: str | None = None
+    #: Where the overrides come from, for display ("container colr", ...).
+    source: str = "frames"
+
+
+#: Use the frames' own metadata (bitstream signals everything, or nothing is known).
+TRUST_FRAMES = StreamColor()
+
+
+def stream_color(path: str | os.PathLike[str]) -> StreamColor:
+    """Container color for what the bitstream does not signal (see the module docs)."""
+    from openpitch.core.video.structure import stream_structure
+
+    with av.open(str(path)) as container:
+        cc = container.streams.video[0].codec_context
+        # Before the first decode these are the container's values (codecpar).
+        c_range, c_space = cc.color_range, cc.colorspace
+    structure = stream_structure(path)
+    rng = matrix = None
+    if not structure.signal_type and c_range in (1, 2):
+        rng = "tv" if c_range == 1 else "pc"
+    if not structure.colour_description and c_space in _MATRICES:
+        matrix = _MATRICES[int(c_space)][0]
+    if rng is None and matrix is None:
+        return TRUST_FRAMES
+    return StreamColor(range=rng, matrix=matrix, source="container")
+
+
+def frame_color(frame: av.VideoFrame, stream: StreamColor = TRUST_FRAMES) -> ColorInfo:
+    color = resolve_color(
         colorspace=frame.colorspace,
         color_range=frame.color_range,
         pix_fmt=frame.format.name,
         width=frame.width,
         height=frame.height,
     )
+    if color.matrix == "rgb" or stream is TRUST_FRAMES:
+        return color
+    if stream.range is not None:
+        color = replace(color, range=stream.range)
+    if stream.matrix is not None:
+        color = replace(color, matrix=stream.matrix)
+    # Guessed only if something was still not known from bitstream or container.
+    frame_range_known = bool(frame.color_range) and stream.range is None
+    range_known = stream.range is not None or frame_range_known
+    matrix_known = stream.matrix is not None or frame.colorspace in _MATRICES
+    return replace(color, guessed=not (range_known and matrix_known))
 
 
 def to_array(
@@ -110,15 +162,16 @@ def to_array(
     format: str = "rgb24",
     size: tuple[int, int] | None = None,
     color: ColorInfo | None = None,
+    stream: StreamColor = TRUST_FRAMES,
 ) -> np.ndarray:
     """Convert a decoded frame to an ``(H, W, 3)`` RGB/BGR array, full range.
 
-    ``size`` is ``(width, height)`` to scale in the same pass. ``color`` overrides the
-    frame's own (resolved) color metadata.
+    ``size`` is ``(width, height)`` to scale in the same pass. ``stream`` is the
+    stream-level color (``stream_color``); ``color`` overrides everything.
     """
     if format not in OUTPUT_FORMATS:
         raise ValueError(f"unsupported output format {format!r}, use one of {OUTPUT_FORMATS}")
-    color = color or frame_color(frame)
+    color = color or frame_color(frame, stream)
     width, height = size if size else (None, None)
     if color.matrix == "rgb":
         out = frame.reformat(

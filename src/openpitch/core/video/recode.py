@@ -34,7 +34,7 @@ from av.codec.hwaccel import HWAccel
 from av.video.reformatter import ColorRange, Colorspace, Interpolation
 from pydantic import BaseModel
 
-from openpitch.core.video.color import frame_color
+from openpitch.core.video.color import StreamColor, frame_color, stream_color
 
 CODECS = ("h264", "hevc")
 ENCODERS = ("auto", "software", "nvenc")
@@ -280,6 +280,7 @@ def _recode(
     progress: ProgressCallback | None,
 ) -> tuple[int, int, int, float, str]:
     accel = HWAccel(hwaccel, allow_software_fallback=True) if hwaccel else None
+    source_color = stream_color(src)
     # The index goes in front (MP4 +faststart, MKV cues), so players can start before
     # the download ends.
     muxer, mux_options, _ = _CONTAINERS[settings.container]
@@ -349,7 +350,7 @@ def _recode(
                                 out.mux(p)
                 continue
             for frame in packet.decode():
-                for p in vout.encode(_convert(frame, width, height)):
+                for p in vout.encode(_convert(frame, width, height, source_color)):
                     out.mux(p)
                 frames += 1
                 if progress is not None and duration and frame.pts is not None:
@@ -371,9 +372,9 @@ def _recode(
     return width, height, frames, seconds, audio_mode
 
 
-def _convert(frame: av.VideoFrame, width: int, height: int) -> av.VideoFrame:
+def _convert(frame: av.VideoFrame, width: int, height: int, source: StreamColor) -> av.VideoFrame:
     """Scale and convert to BT.709 limited-range yuv420p, keeping the frame's pts."""
-    color = frame_color(frame)
+    color = frame_color(frame, source)
     if color.matrix == "rgb":
         out = frame.reformat(
             width=width,

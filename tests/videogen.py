@@ -51,9 +51,15 @@ class VideoSpec:
     pix_fmt: str = "yuv420p"
     #: "numbered" or "patches".
     content: str = "numbered"
-    #: Signalled color metadata. None leaves it unspecified.
+    #: Color metadata signalled in the bitstream (VUI). None leaves it unspecified.
     color_range: str | None = None  # "pc" or "tv"
     matrix: str | None = None  # "bt709" or "bt601"
+    #: Range and matrix of the ``patches`` pixel values, when they differ from what the
+    #: bitstream signals (e.g. full-range data with nothing signalled, like the Falcon).
+    data_range: str | None = None
+    data_matrix: str | None = None
+    #: (range, matrix) written only to the container (MP4 colr), not the bitstream.
+    container_color: tuple[str, str] | None = None
     #: Lossless encoding (exact YUV values survive).
     lossless: bool = False
     #: Add a stereo AAC track (a 440 Hz tone).
@@ -141,9 +147,9 @@ def patches_frame(
 
 
 def _patches_frame(spec: VideoSpec) -> av.VideoFrame:
-    return patches_frame(
-        matrix=spec.matrix or "bt601", full=spec.color_range == "pc", pix_fmt=spec.pix_fmt
-    )
+    data_range = spec.data_range or spec.color_range
+    matrix = spec.data_matrix or spec.matrix or "bt601"
+    return patches_frame(matrix=matrix, full=data_range == "pc", pix_fmt=spec.pix_fmt)
 
 
 def make_video(path: Path, spec: VideoSpec) -> Path:
@@ -229,7 +235,25 @@ def make_video(path: Path, spec: VideoSpec) -> Path:
             out.mux(packet)
         if audio is not None:
             _encode_tone(out, audio, seconds=spec.frames / spec.fps)
+    if spec.container_color:
+        _retag_container(path, *spec.container_color)
     return path
+
+
+def _retag_container(path: Path, color_range: str, matrix: str) -> None:
+    """Remux with color tags in the container only; the bitstream is copied untouched."""
+    tmp = path.with_name(path.stem + ".retag.mp4")
+    with av.open(str(path)) as src, av.open(str(tmp), "w", format="mp4") as out:
+        streams = {s.index: out.add_stream_from_template(s) for s in src.streams}
+        cc = streams[src.streams.video[0].index].codec_context
+        cc.color_range = _RANGE[color_range]
+        cc.colorspace = cc.color_primaries = cc.color_trc = _MATRIX[matrix]
+        for packet in src.demux():
+            if packet.dts is None:
+                continue
+            packet.stream = streams[packet.stream.index]
+            out.mux(packet)
+    tmp.replace(path)
 
 
 def _encode_tone(out, audio, seconds: float, rate: int = 48000) -> None:

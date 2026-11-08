@@ -80,9 +80,12 @@ def test_recode_scales_and_tags_bt709_limited(videos, tmp_path):
         assert (cc.color_range, cc.colorspace) == (1, 1)  # tv, bt709
 
 
-@pytest.mark.parametrize("name", ["h264_pc_709", "h264_tv_601", "hevc10_pc_709"])
+@pytest.mark.parametrize(
+    "name", ["h264_pc_709", "h264_tv_601", "hevc10_pc_709", "h264_colr_pc_709"]
+)
 def test_recode_converts_colors(color_videos, tmp_path, name):
-    """Full-range, BT.601 and 10-bit sources all end up correct as BT.709 limited."""
+    """Full-range, BT.601, 10-bit and container-tagged (Falcon-like) sources all end up
+    correct as BT.709 limited range."""
     dst = tmp_path / "out.mp4"
     recode(color_videos[name], dst, RecodeSettings(quality=0, encoder="software", hwaccel=None))
     with VideoDecoder(dst) as dec:

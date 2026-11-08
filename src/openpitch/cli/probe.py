@@ -8,6 +8,7 @@ from pathlib import Path
 import click
 
 from openpitch.core.video import load_frame_index, probe, stream_structure, summarize
+from openpitch.core.video.color import stream_color
 
 
 def _fmt_s(seconds: float) -> str:
@@ -68,6 +69,16 @@ def probe_cmd(video: Path, as_json: bool, no_cache: bool) -> None:
             f" (intra-frame parallel decoding: {parallel})",
         )
     )
+    color = stream_color(video)
+    signalled = "range" if structure.signal_type else None
+    signalled = ("range and matrix" if structure.colour_description else signalled) or "nothing"
+    used = (
+        f"range {color.range or 'from frames'}, matrix {color.matrix or 'from frames'}"
+        f" from the {color.source}"
+        if color.source != "frames"
+        else "frame tags"
+    )
+    lines.append(("Color source", f"bitstream signals {signalled}; using {used}"))
     if not s.starts_with_keyframe:
         lines.append(("Warning", "stream does not start with a keyframe"))
     width = max(len(k) for k, _ in lines)

@@ -31,7 +31,7 @@ import av
 import numpy as np
 from av.codec.hwaccel import HWAccel
 
-from openpitch.core.video.color import OUTPUT_FORMATS, to_array
+from openpitch.core.video.color import OUTPUT_FORMATS, stream_color, to_array
 from openpitch.core.video.index import FrameIndex, load_frame_index
 
 DEFAULT_CACHE_BYTES = 256 << 20  # ~10 frames at 4K, ~85 at 1080p (rgb24)
@@ -90,6 +90,8 @@ class VideoDecoder:
         self.format = format
         self.size = size
         self.stats = DecoderStats()
+        #: Container color that overrides frame tags the bitstream does not back up.
+        self.stream_color = stream_color(self.path)
 
         if hwaccel:
             from openpitch.core.capabilities import check_hw_decode, select_hw_decoder
@@ -349,7 +351,7 @@ class VideoDecoder:
             frame=pos,
             pts=self.index.pts_of(pos),
             keyframe=bool(self.index.keyframe[pos]),
-            image=to_array(vf, format=self.format, size=self.size),
+            image=to_array(vf, format=self.format, size=self.size, stream=self.stream_color),
         )
 
     def _position(self, vf: av.VideoFrame) -> int | None:
