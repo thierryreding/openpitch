@@ -47,3 +47,52 @@ def video(request, videos) -> tuple[str, Path, VideoSpec]:
     """Each synthetic video in turn."""
     name = request.param
     return name, videos[name], SPECS[name]
+
+
+#: Lossless color-patch videos for checking YUV -> RGB conversion.
+COLOR_SPECS: dict[str, VideoSpec] = {
+    # Like the Falcon: HEVC, full range, BT.709 (H.264 and HEVC decode it as yuvj420p).
+    "hevc_pc_709": VideoSpec(
+        frames=3,
+        content="patches",
+        lossless=True,
+        codec="libx265",
+        color_range="pc",
+        matrix="bt709",
+    ),
+    "h264_pc_709": VideoSpec(
+        frames=3, content="patches", lossless=True, color_range="pc", matrix="bt709"
+    ),
+    "h264_tv_709": VideoSpec(
+        frames=3, content="patches", lossless=True, color_range="tv", matrix="bt709"
+    ),
+    "h264_tv_601": VideoSpec(
+        frames=3, content="patches", lossless=True, color_range="tv", matrix="bt601"
+    ),
+    # No color metadata at all: SD size, so BT.601 limited by convention.
+    "h264_untagged": VideoSpec(frames=3, content="patches", lossless=True),
+    "hevc10_pc_709": VideoSpec(
+        frames=3,
+        content="patches",
+        lossless=True,
+        codec="libx265",
+        pix_fmt="yuv420p10le",
+        color_range="pc",
+        matrix="bt709",
+    ),
+    "hevc10_tv_709": VideoSpec(
+        frames=3,
+        content="patches",
+        lossless=True,
+        codec="libx265",
+        pix_fmt="yuv420p10le",
+        color_range="tv",
+        matrix="bt709",
+    ),
+}
+
+
+@pytest.fixture(scope="session")
+def color_videos(tmp_path_factory) -> dict[str, Path]:
+    d = tmp_path_factory.mktemp("color")
+    return {name: make_video(d / f"{name}.mp4", spec) for name, spec in COLOR_SPECS.items()}

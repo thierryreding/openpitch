@@ -42,10 +42,10 @@
 Phase 1 was accepted on 2026-11-08. Phases 2-5 are still proposed.
 
 1. Studio clipping MVP (accepted). Little CV needed. Slices:
-   - 1a, video index: probe metadata, a frame index (pts and keyframes from a packet
+   - 1a, video index (done): probe metadata, a frame index (pts and keyframes from a packet
      demux, cached on disk), pts <-> frame mapping with tolerance, keyframe snapping,
      content fingerprint, `openpitch probe`.
-   - 1b, decoding: `decode_keyframe`, `decode_frame` with a small LRU cache, a
+   - 1b, decoding (done): `decode_keyframe`, `decode_frame` with a small LRU cache, a
      sequential reader for extraction, and correct full-range BT.709 YUV -> RGB.
    - Then: stream-copy export via ffmpeg (core + CLI), the Studio timeline with
      multiple In/Out markers and a preview, a proxy generation CLI, and installers for

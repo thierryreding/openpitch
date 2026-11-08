@@ -1,6 +1,6 @@
 ---
-title: Decode layer: full-range YUV and 10-bit pixel formats
-labels: task,video
+title: HDR and log footage (HLG, PQ, D-Log) in the decode layer
+labels: question,video
 ---
 
-Falcon footage is yuv420p full range (pc), bt709. Convert to RGB correctly for display and analysis. Also handle 10-bit and other pixel formats beyond 8-bit 4:2:0. Record pix_fmt, color_range and color_space in the analysis header.
+The decode layer converts YUV to RGB with the right matrix and range (full/limited, BT.709/BT.601/BT.2020, 8 and 10 bit), but it does not convert transfer functions. HDR (HLG, PQ) or log footage (DJI D-Log) is shown as encoded: flat and washed out. Find out what the Osmo Action 6 records by default. If it is HDR or log, decide on tone mapping for display, and on what analysis should see. Also record `pix_fmt`, `color_range`, `color_space` (and the transfer) in the analysis header once the schema exists.

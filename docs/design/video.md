@@ -3,9 +3,31 @@
 ## Decoding
 - Decoding and playback use PyAV (ffmpeg bindings), chosen because of the author's
   extensive ffmpeg experience and its reliability. Concern: performance on coach laptops.
-- The decode layer must convert full-range (pc) YUV to RGB correctly, for both display and
-  analysis, and handle pixel formats beyond 8-bit 4:2:0 (10-bit). The JSONL header `video`
-  block stores `pix_fmt`, `color_range` and `color_space`.
+- `VideoDecoder` (`openpitch.core.video.decode`) gives full-range RGB (`rgb24`, `bgr24`,
+  or `rgb48le` for 10-bit input), optionally scaled in the same pass:
+  - `decode_keyframe(n)`: the keyframe at or before `n`, decoded with non-key frames
+    skipped (fast scrubbing).
+  - `decode_frame(n)`: exactly frame `n`. Seeks to the keyframe at or before it and decodes
+    forward. Forward stepping continues without a seek. A byte-bounded LRU cache
+    (default 256 MiB, about 10 frames at 4K) keeps the frames decoded on the way, so
+    stepping back is free within the cache.
+  - `iter_frames(start, end, stride)`: sequential reading for extraction, one seek.
+  - Decoded frames are matched to the frame index by pts with tolerance. If a seek lands
+    after the wanted keyframe, it retries from earlier keyframes. Leading frames of an
+    open GOP (before the keyframe) are dropped, never cached.
+- Color (`openpitch.core.video.color`): the source matrix and range are always passed to
+  swscale explicitly. Untagged frames otherwise get BT.601 limited range, which renders
+  full-range BT.709 up to 24 code values off. Unspecified metadata follows player
+  conventions: `yuvj*` is full range, otherwise limited; BT.709 from 1280x720 up,
+  BT.601 below; the result says when it guessed. Overrides exist for mis-tagged streams.
+  8-bit output is within one code value of reference BT.709/BT.601 math (full and
+  limited range, 8- and 10-bit input); `rgb48le` within 0.6/1.1 code values. Transfer
+  functions are not converted: HDR or log footage (HLG, PQ, D-Log) is shown as encoded.
+- Measured on 4K HEVC at 38 Mb/s with 1 s GOPs and B-frames (16 threads):
+  `decode_keyframe` 65 ms, random `decode_frame` about 230 ms, forward step 9 ms/frame,
+  `iter_frames` 94 fps at 4K (146 fps scaled to 720p). Coach laptops will be several
+  times slower.
+- The JSONL header `video` block stores `pix_fmt`, `color_range` and `color_space`.
 
 ## Time and seeking
 - pts is the source of truth for time, not the frame count, since footage may be variable
@@ -28,7 +50,9 @@
   places a range marker. `openpitch probe` reports the largest deviation from a
   constant-rate timeline: small values are jitter, large ones mean VFR.
 
-## Scrubbing (proposed)
+## Scrubbing
+Implemented by `decode_keyframe` and `decode_frame` (above). The Studio side is still
+to come.
 - Fast mode shows keyframes only: seek to a keyframe and decode just that frame. PyAV can
   also skip non-key frames in the codec context. Since markers snap to keyframes, clip
   editing never needs more precision than this.
