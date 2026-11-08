@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Footage and analysis output: never commit real match video (it shows minors)
+*.mp4
+*.mov
+*.mkv
+*.MP4
+*.MOV
+*.jsonl
+*.jsonl.zst
+!tests/fixtures/**/*.jsonl
+# Model weights are downloaded, not committed
+*.pt
+*.onnx
+*.engine
+
+# Local Claude Code settings
+.claude/settings.local.json
