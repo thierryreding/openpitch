@@ -29,3 +29,5 @@ Template:
 | [0005](0005-per-video-annotations-file.md) | Per-video annotations file for coach events and views | proposed |
 | [0006](0006-clip-markers-snap-to-keyframes.md) | Clip export by stream copy, markers snap to keyframes | accepted |
 | [0007](0007-ultralytics-as-baseline-detector.md) | Ultralytics YOLO as the baseline detector | accepted |
+| [0008](0008-sampled-content-fingerprint.md) | Sampled content fingerprint identifies video files | accepted |
+| [0009](0009-frame-index-disk-cache.md) | The frame index is cached on disk | accepted |

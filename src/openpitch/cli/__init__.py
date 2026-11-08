@@ -4,9 +4,13 @@
 import click
 
 from openpitch import __version__
+from openpitch.cli.probe import probe_cmd
 
 
 @click.group()
 @click.version_option(__version__, prog_name="openpitch")
 def main() -> None:
     """OpenPitch command line tools."""
+
+
+main.add_command(probe_cmd)

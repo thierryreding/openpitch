@@ -38,10 +38,18 @@
   ([0001](../decisions/0001-license-gpl-3.0-or-later.md)). Not intended to be monetized.
 - The earlier prototype was only a clipping timeline and is being rewritten from scratch.
 
-## Roadmap (proposed, not yet agreed)
-1. Studio clipping MVP: PyAV playback with a pts index, a timeline with multiple In/Out
-   markers, clip sidecar, stream-copy export via ffmpeg, a proxy generation CLI, and
-   installers for Windows/macOS (CI matrix). Little CV needed.
+## Roadmap
+Phase 1 was accepted on 2026-11-08. Phases 2-5 are still proposed.
+
+1. Studio clipping MVP (accepted). Little CV needed. Slices:
+   - 1a, video index: probe metadata, a frame index (pts and keyframes from a packet
+     demux, cached on disk), pts <-> frame mapping with tolerance, keyframe snapping,
+     content fingerprint, `openpitch probe`.
+   - 1b, decoding: `decode_keyframe`, `decode_frame` with a small LRU cache, a
+     sequential reader for extraction, and correct full-range BT.709 YUV -> RGB.
+   - Then: stream-copy export via ffmpeg (core + CLI), the Studio timeline with
+     multiple In/Out markers and a preview, a proxy generation CLI, and installers for
+     Windows/macOS (CI matrix).
 2. Schema and extraction foundation: pydantic models in core, JSONL read/write, CLI
    detect + track on the static tactical camera (also launchable from Studio via the core
    job API, with progress/cancel), Studio loads JSONL and draws boxes on the video.

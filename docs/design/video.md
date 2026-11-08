@@ -13,8 +13,20 @@
   with a tolerance, never by exact equality.
 - Frame-accurate seeking is needed for clipping and for overlay lookup in Studio. It is
   not needed for extraction, which decodes sequentially.
-- Keyframe index: built per file by demuxing packets (no decoding) and never assumed.
-  It drives marker snapping ([0006](../decisions/0006-clip-markers-snap-to-keyframes.md)).
+- Frame index (`openpitch.core.video`): pts and keyframe flag of every frame, built per
+  file by demuxing packets (no decoding) and never assumed. It drives pts <-> frame
+  mapping and marker snapping ([0006](../decisions/0006-clip-markers-snap-to-keyframes.md)).
+  Container indexes are not used: MP4 sample tables hold DTS, and with B-frames a
+  keyframe's DTS is not its PTS. A full demux reads the whole file (3.1 s for 9 GB on
+  NVMe, cold), so the index is cached on disk by content fingerprint
+  ([0009](../decisions/0009-frame-index-disk-cache.md)).
+- Frame positions are 0 .. n-1 in presentation order. Position n is the end of the
+  stream, so ranges are half-open `[in, out)` and Out is exclusive.
+- Tolerance: the default is half a frame interval (median frame delta), so any pts
+  closer to a frame start than to its neighbours maps to that frame. `find_frame`
+  matches a frame start, `frame_at` gives the frame on screen at a time, and `boundary`
+  places a range marker. `openpitch probe` reports the largest deviation from a
+  constant-rate timeline: small values are jitter, large ones mean VFR.
 
 ## Scrubbing (proposed)
 - Fast mode shows keyframes only: seek to a keyframe and decode just that frame. PyAV can

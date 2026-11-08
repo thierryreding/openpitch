@@ -28,7 +28,7 @@ replaced by docs generated from them.
 | `view` | `{id, sport: soccer\|american_football, pitch_model: {name, variant}, crop: {x, y, w, h}\|null}` |
 | `teams` | list of `{id, label?, color?}` defining the team ids used in detections (typically two per view; goalkeepers/referees may use their own ids or null) |
 
-`path_hint` is informational only; the `content_hash` is how Studio matches analysis to footage on another machine.
+`path_hint` is informational only; the `content_hash` is how Studio matches analysis to footage on another machine. It is the sampled fingerprint `opfp1:...` (see [0008](../decisions/0008-sampled-content-fingerprint.md)).
 
 ## Line type: `calibration` (zero or more, keyframes)
 | field | notes |
@@ -95,7 +95,7 @@ union, append-only. Small files that coaches can send around.
 
 ## Example (abbreviated)
 ```jsonl
-{"type":"header","schema_version":0,"video":{"content_hash":"sha256:...","width":3840,"height":2160},"source":{"camera":"xbotgo-falcon","view_type":"tracking","camera_motion":"ptz"},"view":{"id":"v1","sport":"soccer","pitch_model":{"name":"soccer-fifa","variant":"full"},"crop":null}}
+{"type":"header","schema_version":0,"video":{"content_hash":"opfp1:...","width":3840,"height":2160},"source":{"camera":"xbotgo-falcon","view_type":"tracking","camera_motion":"ptz"},"view":{"id":"v1","sport":"soccer","pitch_model":{"name":"soccer-fifa","variant":"full"},"crop":null}}
 {"type":"calibration","id":"c1","frame":0,"pts":0,"method":"manual","points":[{"name":"corner_tl","image":[412.0,300.5],"pitch":[0.0,0.0]}],"homography":[1,0,0,0,1,0,0,0,1],"error":0.12}
 {"type":"frame","frame":0,"pts":0,"calibration_id":"c1","homography":[1,0,0,0,1,0,0,0,1],"detections":[{"track_id":7,"cls":"player","conf":0.91,"bbox":[100,200,160,330],"team":0}]}
 ```
