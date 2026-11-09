@@ -31,3 +31,14 @@ def test_cli_probe_bad_file(tmp_path):
     result = CliRunner().invoke(main, ["probe", str(bad)])
     assert result.exit_code == 1
     assert "Error" in result.output
+
+
+def test_time_format_rounds_before_splitting():
+    from openpitch.cli import clip, probe
+
+    for fmt in (clip._fmt_s, probe._fmt_s):
+        assert fmt(299.999986) == "5:00.000"
+        assert fmt(59.9996) == "1:00.000"
+        assert fmt(83.5) == "1:23.500"
+        assert fmt(3599.9999) == "1:00:00.000"
+        assert fmt(3723.25) == "1:02:03.250"

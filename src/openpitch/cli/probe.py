@@ -12,9 +12,10 @@ from openpitch.core.video.color import stream_color
 
 
 def _fmt_s(seconds: float) -> str:
-    m, s = divmod(seconds, 60)
-    h, m = divmod(int(m), 60)
-    return f"{h}:{m:02d}:{s:06.3f}" if h else f"{m}:{s:06.3f}"
+    # Round to milliseconds first, so 299.9999 s shows as 5:00.000, not 4:60.000.
+    m, ms = divmod(round(seconds * 1000), 60_000)
+    h, m = divmod(m, 60)
+    return f"{h}:{m:02d}:{ms / 1000:06.3f}" if h else f"{m}:{ms / 1000:06.3f}"
 
 
 @click.command("probe")
