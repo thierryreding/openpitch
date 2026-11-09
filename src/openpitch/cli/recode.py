@@ -14,6 +14,7 @@ from openpitch.core.video.recode import (
     DEFAULT_PRESET,
     DEFAULT_PROFILE,
     ENCODERS,
+    KEYFRAME_SECONDS,
     PROFILES,
     RecodeResult,
     RecodeSettings,
@@ -107,6 +108,16 @@ def _summary(r: RecodeResult) -> str:
     show_default=True,
     help="Copy the audio track (re-encoded to AAC if MP4 cannot carry it), re-encode, or drop.",
 )
+@click.option(
+    "-k",
+    "--keyframe-interval",
+    "keyframe_seconds",
+    type=click.FloatRange(min=0, min_open=True),
+    default=KEYFRAME_SECONDS,
+    show_default=True,
+    help="Seconds between keyframes. Clips cut from the output by stream copy can grow by"
+    " up to this much on each side; 1 makes about 23% bigger files than 5, 2 about 8%.",
+)
 @click.option("--no-hwdec", is_flag=True, help="Decode in software even if a GPU decoder works.")
 @click.option(
     "-o",
@@ -131,6 +142,7 @@ def recode_cmd(
     quality: int | None,
     preset: str | None,
     audio: str,
+    keyframe_seconds: float,
     no_hwdec: bool,
     output: Path | None,
     output_dir: Path | None,
@@ -160,6 +172,7 @@ def recode_cmd(
         preset=preset,
         hwaccel=None if no_hwdec else "auto",
         audio=audio,
+        keyframe_seconds=keyframe_seconds,
     )
     targets = [(v, output or default_output(v, height, output_dir, container)) for v in videos]
     existing = [str(dst) for _, dst in targets if dst.exists()]

@@ -137,7 +137,7 @@ in-process with PyAV, so no ffmpeg binary is needed.
   (file in the page cache, output to tmpfs) and a 16 s clip 0.5 s. Frames are
   bit-identical to the source and audio stays in sync.
 - Clips grow by up to one keyframe interval on each side: 1 s on Falcon originals, 5 s
-  on `recode` output.
+  on `recode` output by default (see `--keyframe-interval` below).
 - Possible later: configurable re-encode for frame-accurate cuts, smart cut, or a
   re-encoded 1080p export for iPads (today: `clip`, then `recode`).
 
@@ -165,10 +165,14 @@ and container are independent options:
   | tiny | 86.8 | 35 | 28 | 28 | 1.6 Mb/s (about 0.7 GB/h) |
 - Output is BT.709 limited range, what browsers, phones and tablets expect. The source
   matrix and range are converted properly, so full-range Falcon footage stays correct.
-- Keyframes every 5 seconds, chosen by the encoder (plus scene cuts), never copied from
-  the source: decoded frames keep their source picture type, and encoders force a
-  keyframe for every frame marked I, which turned Falcon recodes into 1 s GOPs (about 30%
-  bigger) and intra-only sources into all keyframes.
+- Keyframes every 5 seconds by default (`--keyframe-interval`), chosen by the encoder
+  (plus scene cuts), never copied from the source. Clips cut from the output by stream
+  copy grow by up to one interval on each side, so a game file that coaches clip from
+  may want 1 or 2 seconds. On Falcon footage (NVENC H.264, `normal`), 2 s costs 8% in
+  size and 1 s 23% against 5 s. Never copied, because decoded frames keep their source
+  picture type, and encoders force a keyframe for every frame marked I, which turned
+  Falcon recodes into 1 s GOPs (about 30% bigger) and intra-only sources into all
+  keyframes.
 - Source timestamps are kept (MKV rounds them to milliseconds). Audio is copied if the
   container can carry it, else encoded to AAC. `creation_time` is copied. Interrupted
   runs leave no partial file.

@@ -62,7 +62,9 @@ PROFILES: dict[str, dict[str, int]] = {
 DEFAULT_PROFILE = "normal"
 DEFAULT_HEIGHT = 1080
 DEFAULT_PRESET = {"x264": "fast", "x265": "fast", "nvenc": "p5"}
-#: Keyframe interval of the output.
+#: Default keyframe interval of the output, in seconds. Shorter intervals make files that
+#: clip more precisely by stream copy, at a cost in size (on Falcon footage, NVENC H.264
+#: "normal": +8% for 2 s, +23% for 1 s).
 KEYFRAME_SECONDS = 5
 
 #: Audio codecs MP4 carries as they are (MKV carries anything).
@@ -105,6 +107,8 @@ class RecodeSettings:
     hwaccel: str | None = "auto"
     #: "copy" (re-encode only if MP4 cannot carry it), "aac" or "none".
     audio: str = "copy"
+    #: Longest distance between keyframes, in seconds. Encoders may add more at scene cuts.
+    keyframe_seconds: float = KEYFRAME_SECONDS
 
 
 class RecodeResult(BaseModel):
@@ -220,6 +224,8 @@ def recode(
         raise ValueError(f"unknown profile {settings.profile!r}, use one of {list(PROFILES)}")
     if settings.audio not in ("copy", "aac", "none"):
         raise ValueError(f"unknown audio mode {settings.audio!r}")
+    if not settings.keyframe_seconds > 0:
+        raise ValueError(f"keyframe interval must be positive, not {settings.keyframe_seconds}")
     if settings.container not in CONTAINERS:
         raise ValueError(f"unknown container {settings.container!r}, use one of {CONTAINERS}")
     if src.resolve() == dst.resolve():
@@ -316,7 +322,7 @@ def _recode(
         cc.color_range, cc.colorspace, cc.color_primaries, cc.color_trc = _TV, _BT709, 1, 1
         vout.options = _encoder_options(family, quality, preset)
         # A keyframe every few seconds: cheap, and players seek quickly.
-        cc.gop_size = max(1, round(float(rate) * KEYFRAME_SECONDS))
+        cc.gop_size = max(1, round(float(rate) * settings.keyframe_seconds))
         if settings.codec == "hevc" and settings.container == "mp4":
             cc.codec_tag = "hvc1"  # Apple devices only play HEVC in MP4 tagged hvc1
 

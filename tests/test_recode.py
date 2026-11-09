@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import dataclasses
+
 import av
 import numpy as np
 import pytest
@@ -264,3 +266,26 @@ def test_output_gop_is_not_copied_from_source(videos, tmp_path, name):
     # the encoder finds in the noise, but not the source's keyframes.
     assert len(output) < len(source)
     assert len(output & source) <= 1  # frame 0 only
+
+
+@pytest.mark.parametrize("seconds", [0.5, 1])
+def test_keyframe_interval(videos, tmp_path, seconds):
+    dst = tmp_path / "out.mp4"
+    recode(videos["regular"], dst, dataclasses.replace(SOFTWARE, keyframe_seconds=seconds))
+    keyframes = build_frame_index(dst).keyframes.tolist()
+    gop = round(30 * seconds)
+    # Never further apart than the interval (encoders may add scene cuts in between).
+    assert keyframes[0] == 0
+    assert max(np.diff([*keyframes, 90])) <= gop
+    with pytest.raises(ValueError, match="positive"):
+        recode(videos["regular"], dst, dataclasses.replace(SOFTWARE, keyframe_seconds=0))
+
+
+def test_cli_keyframe_interval(videos, tmp_path):
+    dst = tmp_path / "out.mp4"
+    args = ["recode", str(videos["regular"]), "-o", str(dst), "--encoder", "software", "-k", "1"]
+    result = CliRunner().invoke(main, [*args, "--no-hwdec"])
+    assert result.exit_code == 0, result.output
+    assert max(np.diff([*build_frame_index(dst).keyframes.tolist(), 90])) <= 30
+    result = CliRunner().invoke(main, [*args[:-1], "0"])
+    assert result.exit_code == 2
