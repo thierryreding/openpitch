@@ -181,6 +181,16 @@ and container are independent options:
   minutes for a 30 minute half); x264 `fast` is about half as fast. Whether Google Drive
   previews HEVC and MKV uploads is untested.
 
+## Provenance
+Files written by `clip` and `recode` carry their lineage in the container tag
+`org.openpitch.provenance` (`openpitch.core.video.provenance`,
+[0010](../decisions/0010-video-files-carry-provenance.md)): one step per operation from
+the original footage on, each naming its source by fingerprint, with its size, time base
+and pts offset. `recode` keeps timestamps (offset 0), `clip` shifts them by the pts of its
+first keyframe. MP4 needs `movflags=use_metadata_tags` to write a custom key; Matroska
+upper-cases tag names. `openpitch probe` shows the lineage. Applying annotations made on
+a recode to the original is still to come.
+
 ## Encoder comparison
 Measured with `tools/benchmarks/encoder_matrix.py` and `bdrate.py` on a 2 minute excerpt
 of real Falcon footage (a match, lots of motion), converted to a lossless 1080p

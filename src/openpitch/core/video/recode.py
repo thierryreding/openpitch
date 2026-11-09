@@ -13,7 +13,8 @@ Codec, encoder and container are independent choices:
 Video is converted to BT.709 limited range, what browsers, phones and tablets expect,
 with the source's real matrix and range (``color``): full-range Falcon footage stays
 correct. Source timestamps are kept (MKV rounds them to milliseconds). Audio is copied
-when the container can carry it, else encoded to AAC. ``creation_time`` is copied.
+when the container can carry it, else encoded to AAC. ``creation_time`` is copied, and the
+output records its lineage (``provenance``).
 
 Quality profiles map to a constant-quality value per encoder family (CRF for x264/x265,
 CQ for NVENC); smaller numbers mean better quality and bigger files.
@@ -35,7 +36,9 @@ from av.video.frame import PictureType
 from av.video.reformatter import ColorRange, Colorspace, Interpolation
 from pydantic import BaseModel
 
+from openpitch.core.fingerprint import fingerprint
 from openpitch.core.video.color import StreamColor, frame_color, stream_color
+from openpitch.core.video.provenance import add_step, make_step
 
 CODECS = ("h264", "hevc")
 ENCODERS = ("auto", "software", "nvenc")
@@ -72,7 +75,8 @@ _MP4_AUDIO = {"aac", "mp3", "ac3", "eac3", "alac", "opus", "flac"}
 
 #: Container -> (ffmpeg muxer, muxer options, file extension).
 _CONTAINERS = {
-    "mp4": ("mp4", {"movflags": "+faststart"}, ".mp4"),
+    # use_metadata_tags: MP4 writes custom keys (provenance) only with it.
+    "mp4": ("mp4", {"movflags": "+faststart+use_metadata_tags"}, ".mp4"),
     "mkv": ("matroska", {"cues_to_front": "1"}, ".mkv"),
 }
 
@@ -307,6 +311,17 @@ def _recode(
         for key in ("creation_time", "location", "com.apple.quicktime.location.ISO6709"):
             if key in inp.metadata:
                 out.metadata[key] = inp.metadata[key]
+        # Timestamps are kept, so the step maps time without an offset.
+        step = make_step(
+            "recode",
+            src,
+            fingerprint(src),
+            vin.codec_context.width,
+            vin.codec_context.height,
+            Fraction(vin.time_base),
+            0,
+        )
+        add_step(inp.metadata, out.metadata, step)
 
         width, height = output_size(
             vin.codec_context.width, vin.codec_context.height, settings.height

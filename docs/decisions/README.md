@@ -31,3 +31,4 @@ Template:
 | [0007](0007-ultralytics-as-baseline-detector.md) | Ultralytics YOLO as the baseline detector | accepted |
 | [0008](0008-sampled-content-fingerprint.md) | Sampled content fingerprint identifies video files | accepted |
 | [0009](0009-frame-index-disk-cache.md) | The frame index is cached on disk | accepted |
+| [0010](0010-video-files-carry-provenance.md) | Derived video files carry their provenance | proposed |

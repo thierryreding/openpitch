@@ -11,10 +11,10 @@ these.
 ## Decision (proposed)
 - Each video gets a separate annotations file (JSONL, `type`-discriminated, append-only).
   It is tied to the video, not to a view or an analysis.
-- Records: `header` (`kind: "annotations"`, video hash, optional `derived_from` for game
-  segments exported from a raw recording), `view` (label, crop, sport, pitch model),
-  `event`, `review`, `delete` (tombstone). A later record with the same `id` supersedes
-  the earlier one.
+- Records: `header` (`kind: "annotations"`, video hash, optional `derived_from`: the
+  lineage copied from the video's provenance tag, 0010), `view` (label, crop, sport,
+  pitch model), `event`, `review`, `delete` (tombstone). A later record with the same
+  `id` supersedes the earlier one.
 - Views (twin mode) are defined here before any analysis runs. Analysis headers copy the
   view they were run on.
 - A clip is an `event` with `pts_start`/`pts_end`. There is no separate clip record. Clips

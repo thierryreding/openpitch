@@ -11,6 +11,8 @@ such a keyframe, the clip also carries that keyframe, one frame more than select
 because its leading pictures would not decode otherwise. Leading pictures of the first
 keyframe are dropped: they come before In and reference the previous GOP.
 
+The clip records its lineage (``provenance``), so its timeline maps back to the source.
+
 Audio packets overlapping the clip are copied. Audio packets are not cut, so audio may
 start or end up to one packet (about 21 ms for AAC at 48 kHz) outside the video; MP4
 trims the start with an edit list.
@@ -30,17 +32,20 @@ from pathlib import Path
 import av
 from pydantic import BaseModel
 
+from openpitch.core.fingerprint import fingerprint
 from openpitch.core.video.index import FrameIndex, load_frame_index
+from openpitch.core.video.provenance import add_step, make_step
 from openpitch.core.video.snap import SnappedRange, snap_pts
 
 #: Called with the fraction done (0.0 .. 1.0). It may raise to cancel.
 ProgressCallback = Callable[[float], None]
 
 #: File extension -> (ffmpeg muxer, muxer options).
+#: MP4/MOV write custom metadata keys (provenance) only with ``use_metadata_tags``.
 _MUXERS: dict[str, tuple[str, dict[str, str]]] = {
-    ".mp4": ("mp4", {"movflags": "+faststart"}),
-    ".m4v": ("mp4", {"movflags": "+faststart"}),
-    ".mov": ("mov", {"movflags": "+faststart"}),
+    ".mp4": ("mp4", {"movflags": "+faststart+use_metadata_tags"}),
+    ".m4v": ("mp4", {"movflags": "+faststart+use_metadata_tags"}),
+    ".mov": ("mov", {"movflags": "+faststart+use_metadata_tags"}),
     ".mkv": ("matroska", {"cues_to_front": "1"}),
 }
 EXTENSIONS = tuple(_MUXERS)
@@ -178,6 +183,16 @@ def _copy(
             vout.codec_context.codec_tag = "hvc1"  # Apple devices only play hvc1 in MP4
         aout = out.add_stream_from_template(ain) if ain is not None else None
         _copy_metadata(inp, out, index.seconds(k_in - index.pts_of(0)))
+        step = make_step(
+            "clip",
+            src,
+            index.content_hash or fingerprint(src),
+            vin.codec_context.width,
+            vin.codec_context.height,
+            index.time_base,
+            k_in,
+        )
+        add_step(inp.metadata, out.metadata, step)
 
         vtb = vin.time_base
         start_time = k_in * vtb  # seconds on the source timeline

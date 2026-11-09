@@ -79,6 +79,16 @@ def probe_cmd(video: Path, as_json: bool, no_cache: bool) -> None:
         else "frame tags"
     )
     lines.append(("Color source", f"bitstream signals {signalled}; using {used}"))
+    for step in reversed(info.provenance):  # nearest source first
+        src = step.source
+        offset = f", +{step.pts_offset} pts" if step.pts_offset else ""
+        lines.append(
+            (
+                "Derived from",
+                f"{step.op} of {src.file_name} ({src.content_hash[:18]}..., "
+                f"{src.width}x{src.height}{offset})",
+            )
+        )
     if not s.starts_with_keyframe:
         lines.append(("Warning", "stream does not start with a keyframe"))
     width = max(len(k) for k, _ in lines)

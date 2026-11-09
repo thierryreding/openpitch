@@ -82,7 +82,7 @@ works on a laptop that has no analysis JSONL at all. Same conventions: JSONL, `t
 union, append-only. Small files that coaches can send around.
 | record `type` | fields |
 |---|---|
-| `header` | `kind: "annotations"`, `schema_version`, `video` (content hash etc.), `derived_from?` (`{content_hash, pts_in, pts_out}` of the raw recording when this video is a game segment exported in the ingest pass) |
+| `header` | `kind: "annotations"`, `schema_version`, `video` (content hash etc.), `derived_from?` (the lineage steps copied from the video's `org.openpitch.provenance` tag, original first: `op`, `source {content_hash, file_name, width, height, time_base}`, `pts_offset`, see [0010](../decisions/0010-video-files-carry-provenance.md); set when the video is a game segment or a recode) |
 | `view` | `id`, `label` (e.g. "Pitch A"), `crop: {x, y, w, h}\|null`, `sport`, `pitch_model`. Defines the views of a game (twin mode = two views). Analysis file headers copy the view they were run on. |
 | `event` | `id`, `event_type` (goal, corner, free_kick, foul, kickoff, ... sport vocabulary, free text allowed; plain `clip` for a coach-made clip with no semantic type), `title?`, `view_id?` (which view/twin game it belongs to; a goal on pitch A is not a goal on pitch B), `pts` or `pts_start`/`pts_end`, `team?` (plain label such as home/away, since team ids belong to views), `point?` (image `[x, y]`), `note?`, `tags?`, `clip_id?`, `source: manual\|auto`, `confidence?`, `author`, `created_at` |
 | `review` | `event_id`, `verdict: confirm\|reject\|adjust`, adjusted fields, `author` (coach reviewing a machine-detected event) |

@@ -10,6 +10,8 @@ from pathlib import Path
 import av
 from pydantic import BaseModel, ConfigDict
 
+from openpitch.core.video.provenance import ProvenanceStep, read_provenance
+
 # ffmpeg AVColor* enum values -> the names ffprobe prints.
 _COLOR_RANGE = {0: "unknown", 1: "tv", 2: "pc"}
 _COLOR_SPACE = {
@@ -89,6 +91,8 @@ class VideoInfo(BaseModel):
     fps_avg: Fraction | None
     fps_nominal: Fraction | None
     has_b_frames: bool
+    #: Lineage of a file made by ``clip`` or ``recode``, original first (decisions/0010).
+    provenance: list[ProvenanceStep] = []
 
 
 def probe(path: str | os.PathLike[str]) -> VideoInfo:
@@ -131,4 +135,5 @@ def probe(path: str | os.PathLike[str]) -> VideoInfo:
             fps_avg=Fraction(stream.average_rate) if stream.average_rate else None,
             fps_nominal=Fraction(stream.base_rate) if stream.base_rate else None,
             has_b_frames=bool(cc.has_b_frames),
+            provenance=read_provenance(dict(container.metadata)),
         )
