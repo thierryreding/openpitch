@@ -11,7 +11,7 @@ def test_probe(video):
     _, path, spec = video
     info = probe(path)
     assert (info.width, info.height) == (spec.width, spec.height)
-    assert info.codec == "h264"
+    assert info.codec == {"libx264": "h264", "libx265": "hevc"}[spec.codec]
     assert info.pix_fmt == "yuv420p"
     assert info.bit_depth == 8
     assert info.time_base == spec.stream_time_base()

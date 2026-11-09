@@ -112,10 +112,29 @@ If cameras split long recordings, the header `video` may need a list of segments
 with hash and offset) forming one virtual timeline.
 
 ## Clip export
-Stream copy (keyframe-aligned, no re-encode) for now
-([0006](../decisions/0006-clip-markers-snap-to-keyframes.md)). Possible later:
-configurable re-encode for frame-accurate cuts, smart cut, or a re-encoded 1080p export
-for iPads.
+`openpitch clip` (`openpitch.core.video.clip`) exports ranges by stream copy, without
+re-encoding ([0006](../decisions/0006-clip-markers-snap-to-keyframes.md)). It runs
+in-process with PyAV, so no ffmpeg binary is needed.
+- `plan_clip` gives the snapped range (In to the keyframe at or before, Out to the
+  keyframe at or after) for Studio to show. `export_clip` copies the video packets of
+  that range unchanged and shifts timestamps so the clip starts at 0. The CLI takes
+  ranges as `START-END` in seconds from the first frame (`1:23-1:45.5`), and
+  `--dry-run` prints the snapped ranges.
+- Open GOPs (HEVC CRA, which x265 writes by default): frames shown just before a
+  keyframe can be decoded after it and reference it (leading pictures). When the clip
+  ends at such a keyframe, the export adds that keyframe, one frame more than the
+  snapped range, because the last frames would not decode otherwise. The result reports
+  it (`extra_keyframe`), so the preview may be one frame shorter than the file. Leading
+  pictures of the first keyframe are dropped: they come before In and reference the
+  previous GOP. Whether the Falcon writes open GOPs is not yet checked.
+- Audio packets overlapping the clip are copied, not cut, so audio may start or end up
+  to one packet (about 21 ms for AAC) outside the video, in sync. MP4 trims the start
+  with an edit list. Audio that MP4 cannot carry is dropped (MKV carries anything).
+- The container follows the output extension (`.mp4`, `.m4v`, `.mov` with `+faststart`,
+  or `.mkv`), by default the input's. HEVC in MP4 is tagged `hvc1`. `creation_time` moves
+  to the start of the clip. An interrupted export leaves no partial file.
+- Possible later: configurable re-encode for frame-accurate cuts, smart cut, or a
+  re-encoded 1080p export for iPads (today: `clip`, then `recode`).
 
 ## Recoding for sharing
 `openpitch recode` (`openpitch.core.video.recode`) re-encodes whole files to smaller files

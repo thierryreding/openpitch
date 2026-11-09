@@ -47,9 +47,10 @@ Phase 1 was accepted on 2026-11-08. Phases 2-5 are still proposed.
      content fingerprint, `openpitch probe`.
    - 1b, decoding (done): `decode_keyframe`, `decode_frame` with a small LRU cache, a
      sequential reader for extraction, and correct full-range BT.709 YUV -> RGB.
-   - Then: stream-copy export via ffmpeg (core + CLI), the Studio timeline with
-     multiple In/Out markers and a preview, a proxy generation CLI, and installers for
-     Windows/macOS (CI matrix).
+   - 1c, export (done): `openpitch recode` for sharing, stream-copy clip export
+     `openpitch clip` (core + CLI).
+   - Then: the Studio timeline with multiple In/Out markers and a preview, a proxy
+     generation CLI, and installers for Windows/macOS (CI matrix).
 2. Schema and extraction foundation: pydantic models in core, JSONL read/write, CLI
    detect + track on the static tactical camera (also launchable from Studio via the core
    job API, with progress/cancel), Studio loads JSONL and draws boxes on the video.

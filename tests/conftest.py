@@ -27,6 +27,9 @@ SPECS: dict[str, VideoSpec] = {
         keyframes=[0, 12, 13, 50],
         bframes=3,
     ),
+    # HEVC with open GOPs: x265 writes CRA keyframes whose leading pictures (shown before
+    # the keyframe, decoded after it) reference the previous GOP.
+    "open_gop": VideoSpec(gop=15, bframes=3, codec="libx265"),
 }
 
 

@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Video access: metadata, frame index, pts <-> frame mapping, keyframe snapping, decoding."""
+"""Video access: metadata, frame index, pts <-> frame mapping, keyframe snapping, decoding,
+clip export."""
 
+from openpitch.core.video.clip import ClipResult, export_clip, plan_clip
 from openpitch.core.video.color import ColorInfo, frame_color, resolve_color, to_array
 from openpitch.core.video.decode import DecodedFrame, DecoderStats, VideoDecoder
 from openpitch.core.video.index import (
@@ -15,6 +17,9 @@ from openpitch.core.video.structure import StreamStructure, stream_structure
 from openpitch.core.video.summary import GopStats, VideoSummary, summarize
 
 __all__ = [
+    "ClipResult",
+    "export_clip",
+    "plan_clip",
     "ColorInfo",
     "DecodedFrame",
     "DecoderStats",
