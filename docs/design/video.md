@@ -126,13 +126,18 @@ in-process with PyAV, so no ffmpeg binary is needed.
   snapped range, because the last frames would not decode otherwise. The result reports
   it (`extra_keyframe`), so the preview may be one frame shorter than the file. Leading
   pictures of the first keyframe are dropped: they come before In and reference the
-  previous GOP. Whether the Falcon writes open GOPs is not yet checked.
+  previous GOP. The Falcon writes closed GOPs, so this never applies to its footage.
 - Audio packets overlapping the clip are copied, not cut, so audio may start or end up
   to one packet (about 21 ms for AAC) outside the video, in sync. MP4 trims the start
   with an edit list. Audio that MP4 cannot carry is dropped (MKV carries anything).
 - The container follows the output extension (`.mp4`, `.m4v`, `.mov` with `+faststart`,
   or `.mkv`), by default the input's. HEVC in MP4 is tagged `hvc1`. `creation_time` moves
   to the start of the clip. An interrupted export leaves no partial file.
+- On a real Falcon recording (4K HEVC, 17 minutes, 5 GB), a 17 minute clip took 3.4 s
+  (file in the page cache, output to tmpfs) and a 16 s clip 0.5 s. Frames are
+  bit-identical to the source and audio stays in sync.
+- Clips grow by up to one keyframe interval on each side: 1 s on Falcon originals, 5 s
+  on `recode` output.
 - Possible later: configurable re-encode for frame-accurate cuts, smart cut, or a
   re-encoded 1080p export for iPads (today: `clip`, then `recode`).
 
@@ -221,10 +226,12 @@ XbotGo Falcon, measured on a real recording (18:31, 4K):
 - ~38.7 Mb/s, ~290 MB/min: ~5.4 GB for the 18:31 file, ~8.7 GB for a 30 minute half.
 - AAC stereo audio. Muxed by libavformat 61.7, so the file was remuxed or processed by an
   FFmpeg-based tool.
-- Keyframes every ~1.0 s (30 frames). Packet pts are in a microsecond time base with small
-  jitter (e.g. 5.000022).
-- Still unknown (issue): whether long recordings are split into several files, how footage
-  is retrieved from the camera, and whether pts are truly constant-rate. Falcon has
-  recorded 4K so far but supports several formats and resolutions.
+- Keyframes every ~1.0 s (30 frames), closed GOPs (no leading pictures). Packet pts are
+  in a microsecond time base with small jitter (e.g. 5.000022).
+- No `creation_time` in the container. The recording start is only in the file name
+  (`VID_<YYYYMMDD>_<HHMMSS>_01_01.mp4`).
+- Still unknown (issue): whether one long recording is ever split into several files, how
+  footage is retrieved from the camera, and whether pts are truly constant-rate. Falcon
+  has recorded 4K so far but supports several formats and resolutions.
 
 DJI Osmo Action 6: not yet measured (issue).
