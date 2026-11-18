@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Bitstream structure: parallelism and what the bitstream itself signals about color.
 
-Slice threading only helps if a frame is split into independently decodable parts:
-HEVC wavefronts (WPP), tiles, or several slices. Frame threading works for any stream,
-but delays output by one frame per thread.
+Slice threading only helps if a frame is split into parts ffmpeg decodes in parallel:
+HEVC wavefronts (WPP) or several slices. Tiles do not count: ffmpeg's HEVC decoder
+decodes them one after the other (measured on DJI Osmo Action 6 footage: slice threads
+use one core). Frame threading works for any stream, but delays output by one frame per
+thread, and tiles also throttle it (1.7 cores on the same footage).
 
 Color: H.264/HEVC carry range and matrix in the VUI, but only if
 ``video_signal_type_present_flag`` / ``colour_description_present_flag`` are set. When
@@ -48,11 +50,13 @@ class StreamStructure(BaseModel):
 
     @property
     def intra_frame_parallel(self) -> bool | None:
-        """True if slice threading can decode parts of one frame in parallel."""
-        known = [v for v in (self.wpp, self.tiles) if v is not None]
-        if self.slices is None and not known:
+        """True if ffmpeg's slice threading decodes parts of one frame in parallel.
+
+        Wavefronts or several slices; not tiles, which ffmpeg decodes sequentially.
+        """
+        if self.slices is None and self.wpp is None:
             return None
-        return any(known) or (self.slices or 0) > 1
+        return bool(self.wpp) or (self.slices or 0) > 1
 
 
 def _trace(path: str | os.PathLike[str]) -> tuple[str, list[str]]:

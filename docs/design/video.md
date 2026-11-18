@@ -43,11 +43,14 @@
   HEVC with it, down to 128x16 frames, with correct colors). D3D11VA on Windows is still
   untested on real hardware.
 - Threading: frame threads for everything. Slice threads only parallelize inside a frame,
-  which needs HEVC wavefronts (WPP), tiles or several slices. The Falcon writes one slice
+  which needs HEVC wavefronts (WPP) or several slices. The Falcon writes one slice
   per frame without WPP or tiles, and there slice threads are single-threaded (random
   access 415 ms instead of 152 ms). `openpitch probe` shows the structure
-  (`openpitch.core.video.structure`). If other footage (Osmo?) uses WPP, slice threads
-  could cut CPU scrubbing further (37 ms instead of about 100 ms on x265 WPP streams).
+  (`openpitch.core.video.structure`). On WPP streams, slice threads could cut CPU
+  scrubbing further (37 ms instead of about 100 ms on x265 WPP streams).
+- Tiles do not help: ffmpeg's HEVC decoder decodes them one after the other, and they
+  also throttle frame threading. The Osmo Action 6 writes tiles, and its 4K software
+  decoding uses only 1.7 cores (see the footage facts below).
 - Measured with `openpitch bench-decode` on a Falcon-like stand-in (4K HEVC Main, 38 Mb/s,
   1 s GOPs, 3 B-frames, single slice, no WPP), RTX 3080 laptop, 16 threads. Latencies are
   medians from a reset decoder:

@@ -7,7 +7,7 @@ from click.testing import CliRunner
 
 from openpitch.cli import main
 from openpitch.core import capabilities
-from openpitch.core.video import VideoDecoder, stream_structure
+from openpitch.core.video import StreamStructure, VideoDecoder, stream_structure
 from openpitch.core.video.bench import bench_file, parse_mode
 from videogen import frame_id
 
@@ -160,6 +160,14 @@ def test_structure_hevc_wavefronts(tmp_path):
     s = stream_structure(path)
     assert (s.codec, s.wpp, s.slices) == ("hevc", True, 1)
     assert s.intra_frame_parallel is True
+
+
+def test_tiles_are_not_intra_frame_parallel():
+    # ffmpeg's HEVC decoder decodes tiles sequentially (DJI Osmo Action 6 footage: slice
+    # threads use one core). x265 cannot write tiles, so this checks the rule only.
+    s = StreamStructure(codec="hevc", wpp=False, tiles=True, slices=1)
+    assert s.intra_frame_parallel is False
+    assert StreamStructure(codec="hevc", wpp=True, tiles=True, slices=1).intra_frame_parallel
 
 
 # -- benchmark ------------------------------------------------------------------------
