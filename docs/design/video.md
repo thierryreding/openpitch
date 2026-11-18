@@ -111,8 +111,11 @@ to come.
   pts on the original timeline, and export always cuts the original file.
 
 ## Multi-segment recordings (proposed)
-If cameras split long recordings, the header `video` may need a list of segments (files
-with hash and offset) forming one virtual timeline.
+The Osmo Action 6 splits a recording into 16 GiB files (about 28 minutes at 4K60), so a
+30 minute half arrives as two files. Each file's timestamps restart at 0, and the next
+file continues at the next frame. The header `video` may need a list of segments (files
+with hash and offset) forming one virtual timeline, or the ingest pass joins them into
+one game file by stream copy.
 
 ## Clip export
 `openpitch clip` (`openpitch.core.video.clip`) exports ranges by stream copy, without
@@ -251,4 +254,36 @@ XbotGo Falcon, measured on a real recording (18:31, 4K):
   footage is retrieved from the camera, and whether pts are truly constant-rate. Falcon
   has recorded 4K so far but supports several formats and resolutions.
 
-DJI Osmo Action 6: not yet measured (issue).
+DJI Osmo Action 6, measured on a real match recording from one camera (4:3 4K mode at
+59.94 fps):
+- MP4 files named `DJI_<YYYYMMDDhhmmss>_<NNNN>_D.MP4` (local start time).
+  `creation_time` is in the container (UTC, whole seconds).
+- HEVC Main 10, yuv420p10le, 3840x2880, 59.94 fps (60000/1001, time base 1/60000, no
+  jitter), about 81 Mb/s: about 17.2 GB per 28 minutes, 37 GB/h.
+- BT.709 limited range, signalled in the bitstream. No log or HLG profile in this mode.
+- Keyframes every 60 frames (1 s), no B-frames. Tiles, one slice per frame, no WPP.
+- Recordings split at 16 GiB (see "Multi-segment recordings" above). The split is
+  seamless: the last frame of one file and the first of the next are adjacent, with no
+  overlap (compared pixel by pixel). The timecode track continues across files (it is not
+  time of day). It puts the next file 2-4 frames early, which is drop-frame timecode
+  rounding, not overlap.
+- Other streams: AAC stereo 48 kHz (about 320 kb/s), two per-frame data tracks
+  (`CAM meta`, `CAM dbgi`: DJI metadata, probably including IMU and exposure; not yet
+  decoded), a timecode track and an MJPEG cover image. `clip` and `recode` keep only
+  video and audio.
+- Each MP4 has an `.LRF` companion: 960x720 H.264 High, 8-bit, 29.97 fps, about 7.5 Mb/s,
+  with keyframes at exactly the same times as the MP4. It is a ready-made proxy for
+  playback and keyframe scrubbing; export still cuts the MP4
+  ([0006](../decisions/0006-clip-markers-snap-to-keyframes.md)).
+- Decoding (`openpitch bench-decode`, RTX 3080 laptop, 16 threads):
+
+  | mode | decode fps (cores) | +RGB fps | scrub | random | step |
+  |---|---|---|---|---|---|
+  | software, 16 threads | 31 (1.7) | 27 | 674 ms | 1046 ms | 44 ms |
+  | software, 4 threads | 26 (1.4) | 23 | 201 ms | 1051 ms | 44 ms |
+  | NVDEC (cuda) | 82 (0.3) | 53 | 20 ms | 313 ms | 20 ms |
+
+  Software decoding is not real time even on this laptop, because of the tiles (see
+  "Threading" above). Coach laptops need a hardware decoder or the LRF proxy.
+- Still open (issue): the lens profile for undistortion, other recording modes (8K, log),
+  what the data tracks contain, and how two cameras are synchronized and combined.
