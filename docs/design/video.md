@@ -255,7 +255,7 @@ XbotGo Falcon, measured on a real recording (18:31, 4K):
   has recorded 4K so far but supports several formats and resolutions.
 
 DJI Osmo Action 6, measured on a real match recording from one camera (4:3 4K mode at
-59.94 fps):
+59.94 fps, Ultra Wide FOV, which DJI gives as 155°):
 - MP4 files named `DJI_<YYYYMMDDhhmmss>_<NNNN>_D.MP4` (local start time).
   `creation_time` is in the container (UTC, whole seconds).
 - HEVC Main 10, yuv420p10le, 3840x2880, 59.94 fps (60000/1001, time base 1/60000, no
@@ -263,14 +263,27 @@ DJI Osmo Action 6, measured on a real match recording from one camera (4:3 4K mo
 - BT.709 limited range, signalled in the bitstream. No log or HLG profile in this mode.
 - Keyframes every 60 frames (1 s), no B-frames. Tiles, one slice per frame, no WPP.
 - Recordings split at 16 GiB (see "Multi-segment recordings" above). The split is
-  seamless: the last frame of one file and the first of the next are adjacent, with no
-  overlap (compared pixel by pixel). The timecode track continues across files (it is not
-  time of day). It puts the next file 2-4 frames early, which is drop-frame timecode
-  rounding, not overlap.
+  frame-exact: the camera clock in `CAM meta` (below) steps by exactly one frame interval
+  from the last frame of one file to the first of the next, and the two frames are
+  adjacent in the pixels too. The timecode track continues across files (it is not time
+  of day). It puts the next file 2-4 frames early, which is drop-frame timecode rounding.
 - Other streams: AAC stereo 48 kHz (about 320 kb/s), two per-frame data tracks
-  (`CAM meta`, `CAM dbgi`: DJI metadata, probably including IMU and exposure; not yet
-  decoded), a timecode track and an MJPEG cover image. `clip` and `recode` keep only
-  video and audio.
+  (`CAM meta`, `CAM dbgi`, below), a timecode track and an MJPEG cover image. `clip` and
+  `recode` keep only video and audio.
+- The data tracks are protobuf messages without a published schema
+  (`tools/dji_metadata.py` decodes the wire format; paths below are field numbers).
+  `CAM meta` (`dvtm_ac206.proto`, about 130 bytes per frame): a header in the first
+  packet (model, firmware, serial number, video mode), then per frame a camera clock in
+  µs since power-on (`3.1.2`, continuous across split files), an orientation quaternion
+  from the IMU (`3.2.9`), the gravity direction in camera coordinates (`3.2.10`, i.e. the
+  camera's tilt and roll), white balance in kelvin (`3.2.6`) and an unidentified value
+  that varies with the scene (`3.2.3`, 9290-12800, maybe exposure). `CAM dbgi`
+  (`dbginfo_ac206.proto`, 4-10 KB per frame) is firmware debug state: the sensor name
+  (OmniVision OV68A40), a sensor register blob, auto-exposure and tone-mapping
+  parameters, histograms and memory addresses.
+- Neither track has a lens model: no focal length, distortion coefficients or FOV
+  setting. Undistortion needs a calibration per FOV mode (our own, or a published lens
+  profile).
 - Each MP4 has an `.LRF` companion: 960x720 H.264 High, 8-bit, 29.97 fps, about 7.5 Mb/s,
   with keyframes at exactly the same times as the MP4. It is a ready-made proxy for
   playback and keyframe scrubbing; export still cuts the MP4
@@ -285,5 +298,5 @@ DJI Osmo Action 6, measured on a real match recording from one camera (4:3 4K mo
 
   Software decoding is not real time even on this laptop, because of the tiles (see
   "Threading" above). Coach laptops need a hardware decoder or the LRF proxy.
-- Still open (issue): the lens profile for undistortion, other recording modes (8K, log),
-  what the data tracks contain, and how two cameras are synchronized and combined.
+- Still open (issue): the lens profile per FOV mode, other recording modes (8K, log), the
+  unidentified metadata fields, and how two cameras are synchronized and combined.

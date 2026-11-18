@@ -14,7 +14,11 @@
 - Camera-agnostic: any footage, whatever the camera, resolution, codec or frame rate.
   Planned footage types:
   (a) XbotGo Falcon with auto-tracking, for highlights;
-  (b) wide-angle DJI Osmo Action 6 (ordered; reportedly up to 8K) as a tactical recording.
+  (b) DJI Osmo Action 6 as a tactical recording of the whole pitch. One camera in Ultra
+      Wide FOV (155°) did not cover the pitch well enough, so the plan is two of them side
+      by side on a bracket, angled slightly outwards, in Standard FOV. How the two views
+      are synchronized and combined (stitched panorama, per-camera analysis joined in
+      pitch coordinates, or both) is open.
 - Twin mode: in youth football, players often split into two teams each and play two
   games in parallel, each on roughly half a pitch. Tactical video is analyzed as two views
   of one video (virtual crop, see [0003](../decisions/0003-jsonl-analysis-file-principles.md)).
