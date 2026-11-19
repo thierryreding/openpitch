@@ -281,9 +281,14 @@ DJI Osmo Action 6, measured on a real match recording from one camera (4:3 4K mo
   (`dbginfo_ac206.proto`, 4-10 KB per frame) is firmware debug state: the sensor name
   (OmniVision OV68A40), a sensor register blob, auto-exposure and tone-mapping
   parameters, histograms and memory addresses.
-- Neither track has a lens model: no focal length, distortion coefficients or FOV
-  setting. Undistortion needs a calibration per FOV mode (our own, or a published lens
-  profile).
+- The header records the settings: `2.5.1` is the FOV setting (1 Wide, 2 Standard
+  (Dewarp), 3 Ultra Wide, 6 Natural Wide) and `1.9.1` is 1 with stabilization on (absent
+  when off). Neither track has a lens model (no focal length or distortion
+  coefficients), so each setting needs a calibration.
+- Standard (Dewarp) is rectilinear: the camera removes the lens distortion. With
+  stabilization off, the horizontal FOV is 103.5°; stabilization crops about 10° and
+  makes the geometry vary slightly over time. Measured with `openpitch camera calibrate`,
+  see [camera.md](camera.md).
 - Each MP4 has an `.LRF` companion: 960x720 H.264 High, 8-bit, 29.97 fps, about 7.5 Mb/s,
   with keyframes at exactly the same times as the MP4. It is a ready-made proxy for
   playback and keyframe scrubbing; export still cuts the MP4
@@ -298,5 +303,6 @@ DJI Osmo Action 6, measured on a real match recording from one camera (4:3 4K mo
 
   Software decoding is not real time even on this laptop, because of the tiles (see
   "Threading" above). Coach laptops need a hardware decoder or the LRF proxy.
-- Still open (issue): the lens profile per FOV mode, other recording modes (8K, log), the
-  unidentified metadata fields, and how two cameras are synchronized and combined.
+- Still open (issue): calibrations of the other FOV settings if they are ever used, other
+  recording modes (8K, log), the unidentified metadata fields, and how two cameras are
+  synchronized and combined.

@@ -8,3 +8,6 @@ output that contains it.
 |---|---|
 | `dji_metadata.py dump\|fields\|diff VIDEO...` | decode the per-frame protobuf metadata tracks of DJI recordings (`CAM meta`, `CAM dbgi`) without a schema; `diff` compares two recordings, e.g. two FOV settings |
 | [`benchmarks/`](benchmarks/README.md) | raw measurement scripts behind the numbers in `docs/design/video.md` |
+
+Camera calibration is a command: `openpitch camera board` and `openpitch camera calibrate`
+(docs/design/camera.md).
