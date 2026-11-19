@@ -26,49 +26,13 @@ import sys
 
 import av
 
+from openpitch.core.video.dji import parse_message
+
 TRACKS = {"meta": "CAM meta", "dbgi": "CAM dbgi"}
 
-# -- protobuf wire format ---------------------------------------------------------------
+# -- protobuf wire format (shared with openpitch.core.video.dji) -------------------------
 
-
-def _varint(b: bytes, i: int) -> tuple[int, int]:
-    value = shift = 0
-    while True:
-        c = b[i]
-        i += 1
-        value |= (c & 0x7F) << shift
-        shift += 7
-        if c < 0x80:
-            return value, i
-
-
-def parse(b: bytes) -> list[tuple[int, int, object]] | None:
-    """``(field, wire type, value)`` of a message, or None if ``b`` is not one."""
-    out = []
-    i = 0
-    try:
-        while i < len(b):
-            key, i = _varint(b, i)
-            field, wire = key >> 3, key & 7
-            if field == 0:
-                return None
-            if wire == 0:
-                value, i = _varint(b, i)
-            elif wire == 1:
-                value, i = b[i : i + 8], i + 8
-            elif wire == 5:
-                value, i = b[i : i + 4], i + 4
-            elif wire == 2:
-                n, i = _varint(b, i)
-                value, i = b[i : i + n], i + n
-            else:
-                return None
-            if i > len(b):
-                return None
-            out.append((field, wire, value))
-    except IndexError:
-        return None
-    return out
+parse = parse_message
 
 
 def _text(v: bytes) -> str | None:
