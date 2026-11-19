@@ -59,10 +59,17 @@ Phase 1 was accepted on 2026-11-08. Phases 2-5 are still proposed.
    detect + track on the static tactical camera (also launchable from Studio via the core
    job API, with progress/cancel), Studio loads JSONL and draws boxes on the video.
 3. Pitch model and calibration: manual calibration UI (overlay file), derived pitch
-   positions, top-down pitch diagram view.
+   positions, top-down pitch diagram view. Done ahead of it: camera calibration (lens and
+   field of view, `openpitch camera`, a full-screen board in Studio; see
+   [camera.md](camera.md)), which pitch calibration builds on.
 4. Falcon PTZ homography propagation, team assignment (click-to-seed), twin-mode views,
    auto-calibration.
 5. Live capture on Jetson.
 
 CV experiments (detector/tracker comparison, homography) can run alongside phase 1, as
 CLI scripts or notebooks for learning.
+
+Project home: the domain openpitch.dev is reserved for a project website (to build
+eventually: what OpenPitch does, downloads, documentation), and the GitHub organization
+openpitch-dev is created. The repository moves there at some point; nothing in it names
+its current location yet, so the move needs no changes in the code or docs.
