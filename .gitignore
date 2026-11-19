@@ -18,6 +18,11 @@ htmlcov/
 *.mkv
 *.MP4
 *.MOV
+# DJI low-resolution companion files (.LRF) are footage too
+*.lrf
+*.LRF
+# Local footage and measurements
+/data/
 *.jsonl
 *.jsonl.zst
 !tests/fixtures/**/*.jsonl
