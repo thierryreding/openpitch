@@ -31,8 +31,8 @@ jobs:
       - name: Qt system libraries (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libegl1 libgl1 libxkbcommon0
-      - name: Install core + cli + studio (no gpu extra, as in the coach build)
-        run: uv sync --locked --extra studio
+      - name: Install core + cli + studio + cv (no gpu extra, as in the coach build)
+        run: uv sync --locked --extra studio --extra cv
       - run: uv run --locked pytest
       - name: Studio imports PySide6
         run: uv run --locked python -c "import PySide6.QtWidgets"

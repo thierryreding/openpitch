@@ -6,6 +6,7 @@
   - [overview.md](design/overview.md): goals, users, scope, roadmap
   - [architecture.md](design/architecture.md): packages, job API, backends, distribution
   - [video.md](design/video.md): decoding, keyframes, seeking, proxies, footage facts
+  - [camera.md](design/camera.md): camera calibration (lens, field of view), camera profiles
   - [pipeline.md](design/pipeline.md): extraction stages, calibration, homography, teams
   - [workflows.md](design/workflows.md): ingest pass and coach pass
   - [schema.md](design/schema.md): JSONL schema draft (replaced by generated docs later)

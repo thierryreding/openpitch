@@ -25,6 +25,10 @@ dependencies = [
 [project.optional-dependencies]
 # PySide6 is LGPL; only openpitch.studio may import it.
 studio = ["pyside6>=6.8"]
+# OpenCV (Apache-2.0) for camera calibration (openpitch.core.camera), later also pitch
+# calibration. Headless: no Qt or GUI code of its own. Note that ultralytics (gpu) pulls in
+# opencv-python, which installs the same cv2 module.
+cv = ["opencv-python-headless>=4.10"]
 # Inference stack for dev workstations (and later Jetson). Ultralytics is AGPL-3.0
 # and stays behind the detector backend abstraction (docs/decisions/0007).
 gpu = [
