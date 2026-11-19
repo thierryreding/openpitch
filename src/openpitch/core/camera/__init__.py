@@ -6,13 +6,20 @@ docs/design/pipeline.md). OpenCV comes from the ``cv`` extra and is imported laz
 ``import openpitch.core.camera`` works without it.
 """
 
-from openpitch.core.camera.board import BoardSpec, load_board, make_board, save_board
+from openpitch.core.camera.board import (
+    BoardSpec,
+    available,
+    load_board,
+    make_board,
+    save_board,
+)
 from openpitch.core.camera.calibrate import calibrate
 from openpitch.core.camera.profile import CameraProfile, load_profile, save_profile
 
 __all__ = [
     "BoardSpec",
     "CameraProfile",
+    "available",
     "calibrate",
     "load_board",
     "load_profile",

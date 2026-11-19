@@ -17,6 +17,10 @@ mode. Not to be confused with *pitch* calibration, which maps image points to th
    size, is informational: focal length, distortion and field of view do not depend on
    it. The CLI does not detect screens: that needs a GUI toolkit, and the CLI never
    depends on one.
+   Or `openpitch-studio --calibration-board` (needs the `studio` and `cv` extras): Studio
+   finds the screen's physical resolution and size through Qt, shows the board
+   full-screen at one board pixel per screen pixel whatever the desktop scaling, and
+   writes the same two files (`--board-output`, default `charuco.png`). Esc or Q quits.
 2. Show the PNG full-screen (a web browser with F11 works) and record 20-30 s in exactly
    the mode to calibrate. Keep the camera still and move the screen through the whole
    image, corners and edges included, tilted up to about 45 degrees, at about 0.7-1.2 m.
@@ -26,9 +30,8 @@ mode. Not to be confused with *pitch* calibration, which maps image points to th
    simplest model whose RMS is within 10% of the best: extra terms fitted on noise only
    make the edges worse. It writes a camera profile.
 
-Planned: the same workflow in Studio, which finds its screen's resolution and physical
-size through Qt (portable), generates the board for it, shows it full-screen and
-calibrates while the user moves the laptop in front of the camera.
+Planned: the whole workflow in Studio, which shows the board and calibrates while the
+user moves the laptop in front of the camera.
 
 ## Camera profile
 A JSON file (`CameraProfile`, `kind: "camera_profile"`, `version: 1`):

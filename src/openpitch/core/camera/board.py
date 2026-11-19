@@ -48,6 +48,13 @@ class BoardSpec(BaseModel):
         return (self.squares[0] - 1) * (self.squares[1] - 1)
 
 
+def available() -> bool:
+    """True if OpenCV (the ``cv`` extra), which boards and calibration need, is installed."""
+    import importlib.util
+
+    return importlib.util.find_spec("cv2") is not None
+
+
 def layout(width: int, height: int, rows: int = DEFAULT_ROWS) -> tuple[int, int, int]:
     """(columns, rows, square size in pixels) for a board filling a ``width`` x ``height``
     image, with ``rows`` squares on the short side and a margin of half a square (a

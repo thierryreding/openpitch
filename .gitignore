@@ -23,6 +23,9 @@ htmlcov/
 *.LRF
 # Local footage and measurements
 /data/
+# Calibration boards written by "openpitch camera board" and Studio
+charuco.png
+charuco.json
 *.jsonl
 *.jsonl.zst
 !tests/fixtures/**/*.jsonl
